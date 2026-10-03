@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Dialog from '@/components/Dialog';
 import { SourceChips } from '@/components/ask/SourceChips';
 import { mapAskError } from '@/components/ask/askErrors';
+import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
 import { eventDispatcher } from '@/utils/event';
@@ -13,6 +14,11 @@ import { runAsk, runFollowUp, type AskDeps } from '@/services/ai/ask/askService'
 import { completeWithAntigravity } from '@/services/ai/ask/antigravityClient';
 import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import type { AskMode } from '@/services/ai/ask/types';
+import {
+  createPersistentHistoryStore,
+  type HistoryStore,
+  type SaveTurnInput,
+} from '@/services/ai/history/historyStore';
 import { retrieveFromLightRAG } from '@/services/ai/lightrag/client';
 import type { LightRAGSource } from '@/services/ai/lightrag/types';
 
@@ -76,16 +82,59 @@ const AskPanel: React.FC<AskPanelProps> = ({
   threadEpoch,
 }) => {
   const _ = useTranslation();
+  const { appService } = useEnv();
   const { settings } = useSettingsStore();
   const aiSettings = settings?.aiSettings ?? DEFAULT_AI_SETTINGS;
 
   const [messages, setMessages] = useState<AskPanelMessage[]>([]);
   const [agyConversationId, setAgyConversationId] = useState<string | undefined>();
+  const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
   const [activeMode, setActiveMode] = useState<AskMode>(mode);
   const [followUp, setFollowUp] = useState('');
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const startedEpochRef = useRef<number | null>(null);
+  const historyStoreRef = useRef<HistoryStore | null>(null);
+  const activeThreadIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
+
+  const getHistoryStore = (): HistoryStore | null => {
+    if (!appService) return null;
+    if (!historyStoreRef.current) {
+      historyStoreRef.current = createPersistentHistoryStore(appService.fs);
+    }
+    return historyStoreRef.current;
+  };
+
+  /** Persist a finalized turn; write failures must not hide the answer. */
+  const persistTurn = async (
+    input: Omit<SaveTurnInput, 'bookHash' | 'bookTitle' | 'threadId'> & {
+      threadId?: string;
+    },
+  ) => {
+    const store = getHistoryStore();
+    if (!store) return;
+    try {
+      const thread = await store.saveTurn({
+        bookHash,
+        bookTitle,
+        ...input,
+        threadId: input.threadId ?? activeThreadIdRef.current,
+      });
+      setActiveThreadId(thread.id);
+      activeThreadIdRef.current = thread.id;
+    } catch (err) {
+      console.warn('Failed to persist Ask history:', err);
+      eventDispatcher.dispatch('toast', {
+        type: 'warning',
+        message: _('Could not save question history.'),
+        timeout: 3000,
+      });
+    }
+  };
 
   const scrollToBottom = () => {
     const el = listRef.current;
@@ -97,7 +146,10 @@ const AskPanel: React.FC<AskPanelProps> = ({
     scrollToBottom();
   }, [messages, open, busy]);
 
-  const appendError = (err: unknown, opts?: { offerAskWithoutLibrary?: boolean }) => {
+  const appendError = (
+    err: unknown,
+    opts?: { offerAskWithoutLibrary?: boolean; question?: string },
+  ) => {
     const info = mapAskError(err);
     setMessages((prev) => [
       ...prev,
@@ -108,6 +160,17 @@ const AskPanel: React.FC<AskPanelProps> = ({
         offerAskWithoutLibrary: opts?.offerAskWithoutLibrary ?? info.offerAskWithoutLibrary,
       },
     ]);
+    if (opts?.question) {
+      void persistTurn({
+        question: opts.question,
+        answer: info.message,
+        selectionText,
+        selectionCfi,
+        sources: [],
+        grounded: false,
+        isError: true,
+      });
+    }
   };
 
   const runInitialAsk = async (question: string, askMode: AskMode) => {
@@ -144,8 +207,17 @@ const AskPanel: React.FC<AskPanelProps> = ({
           grounded: result.grounded,
         },
       ]);
+      void persistTurn({
+        question,
+        answer: result.answer,
+        selectionText,
+        selectionCfi,
+        sources: result.sources,
+        grounded: result.grounded,
+        agyConversationId: result.agyConversationId,
+      });
     } catch (err) {
-      appendError(err);
+      appendError(err, { question });
     } finally {
       setBusy(false);
     }
@@ -157,6 +229,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
     if (startedEpochRef.current === threadEpoch) return;
     startedEpochRef.current = threadEpoch;
     setAgyConversationId(undefined);
+    setActiveThreadId(undefined);
+    activeThreadIdRef.current = undefined;
     setFollowUp('');
     setActiveMode(mode);
     void runInitialAsk(initialQuestion.trim(), mode);
@@ -169,6 +243,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
     setMessages((prev) => prev.filter((m) => m.id !== errorMessageId));
     setActiveMode('ask');
     setAgyConversationId(undefined);
+    setActiveThreadId(undefined);
+    activeThreadIdRef.current = undefined;
     void runInitialAsk(userMsg.content, 'ask');
   };
 
@@ -197,6 +273,15 @@ const AskPanel: React.FC<AskPanelProps> = ({
               grounded: result.grounded,
             },
           ]);
+          void persistTurn({
+            question,
+            answer: result.answer,
+            selectionText,
+            selectionCfi,
+            sources: result.sources,
+            grounded: result.grounded,
+            agyConversationId: result.agyConversationId,
+          });
           return;
         } catch (resumeErr) {
           eventDispatcher.dispatch('toast', {
@@ -227,6 +312,15 @@ const AskPanel: React.FC<AskPanelProps> = ({
               grounded: false,
             },
           ]);
+          void persistTurn({
+            question,
+            answer: result.answer,
+            selectionText,
+            selectionCfi,
+            sources: result.sources,
+            grounded: false,
+            agyConversationId: result.agyConversationId,
+          });
           return;
         }
       }
@@ -256,8 +350,17 @@ const AskPanel: React.FC<AskPanelProps> = ({
           grounded: result.grounded,
         },
       ]);
+      void persistTurn({
+        question,
+        answer: result.answer,
+        selectionText,
+        selectionCfi,
+        sources: result.sources,
+        grounded: result.grounded,
+        agyConversationId: result.agyConversationId,
+      });
     } catch (err) {
-      appendError(err);
+      appendError(err, { question });
     } finally {
       setBusy(false);
     }
