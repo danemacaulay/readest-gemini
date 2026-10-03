@@ -34,6 +34,10 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   openrouterModel: '',
   openrouterEmbeddingModel: '',
 
+  agyPath: 'agy',
+  lightragBaseUrl: 'http://127.0.0.1:8765',
+  lightragMode: 'hybrid',
+
   spoilerProtection: true,
   maxContextChunks: 10,
   indexingMode: 'on-demand',

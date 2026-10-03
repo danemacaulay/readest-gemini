@@ -55,6 +55,12 @@ describe('DEFAULT_AI_SETTINGS', () => {
   test('should have spoiler protection enabled by default', () => {
     expect(DEFAULT_AI_SETTINGS.spoilerProtection).toBe(true);
   });
+
+  test('should have Antigravity / LightRAG defaults', () => {
+    expect(DEFAULT_AI_SETTINGS.agyPath).toBe('agy');
+    expect(DEFAULT_AI_SETTINGS.lightragBaseUrl).toBe('http://127.0.0.1:8765');
+    expect(DEFAULT_AI_SETTINGS.lightragMode).toBe('hybrid');
+  });
 });
 
 describe('Model constants', () => {
@@ -71,6 +77,7 @@ describe('Model constants', () => {
 describe('AISettings Type', () => {
   test('should allow creating valid settings object', () => {
     const settings: AISettings = {
+      ...DEFAULT_AI_SETTINGS,
       enabled: true,
       provider: 'ollama',
       ollamaBaseUrl: 'http://localhost:11434',

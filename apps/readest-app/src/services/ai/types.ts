@@ -2,6 +2,9 @@ import type { LanguageModel, EmbeddingModel } from 'ai';
 
 export type AIProviderName = 'ollama' | 'ai-gateway' | 'openrouter';
 
+/** LightRAG query modes accepted by lib-rag /ask retrieve. */
+export type LightRAGMode = 'local' | 'global' | 'hybrid' | 'naive';
+
 export interface AIProvider {
   id: AIProviderName;
   name: string;
@@ -33,6 +36,16 @@ export interface AISettings {
   openrouterBaseUrl?: string;
   openrouterModel?: string;
   openrouterEmbeddingModel?: string;
+
+  /**
+   * Shell scope name / binary for Antigravity CLI (`Command.create` name).
+   * Must match a Tauri shell capability entry (default `agy` on PATH).
+   */
+  agyPath: string;
+  /** Base URL for the local lib-rag LightRAG HTTP server. */
+  lightragBaseUrl: string;
+  /** LightRAG retrieve mode passed to lib-rag. */
+  lightragMode: LightRAGMode;
 
   spoilerProtection: boolean;
   maxContextChunks: number;

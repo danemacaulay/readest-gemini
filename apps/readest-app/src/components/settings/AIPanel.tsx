@@ -11,10 +11,13 @@ import {
   type OpenRouterModelInfo,
 } from '@/services/ai/providers/OpenRouterProvider';
 import { DEFAULT_AI_SETTINGS, GATEWAY_MODELS, MODEL_PRICING } from '@/services/ai/constants';
-import type { AISettings, AIProviderName } from '@/services/ai/types';
+import type { AISettings, AIProviderName, LightRAGMode } from '@/services/ai/types';
+import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import { exportReedyMetricsBundle } from '@/services/reedy/instrumentation';
 import { isTauriAppPlatform } from '@/services/environment';
 import { BoxedList, SettingLabel, SettingsRow, SettingsSwitchRow } from './primitives';
+
+const LIGHTRAG_MODES: LightRAGMode[] = ['hybrid', 'local', 'global', 'naive'];
 
 type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 type CustomModelStatus = 'idle' | 'validating' | 'valid' | 'invalid';
@@ -99,6 +102,17 @@ const AIPanel: React.FC = () => {
   const [openrouterModels, setOpenrouterModels] = useState<OpenRouterModelInfo[]>([]);
   const [openrouterFetchingModels, setOpenrouterFetchingModels] = useState(false);
   const [openrouterModelsError, setOpenrouterModelsError] = useState('');
+
+  // ---- Antigravity Ask / LightRAG ----
+  const [agyPath, setAgyPath] = useState(aiSettings.agyPath ?? DEFAULT_AI_SETTINGS.agyPath);
+  const [lightragBaseUrl, setLightragBaseUrl] = useState(
+    aiSettings.lightragBaseUrl ?? DEFAULT_AI_SETTINGS.lightragBaseUrl,
+  );
+  const [lightragMode, setLightragMode] = useState<LightRAGMode>(
+    aiSettings.lightragMode ?? DEFAULT_AI_SETTINGS.lightragMode,
+  );
+  const [agyTestStatus, setAgyTestStatus] = useState<ConnectionStatus>('idle');
+  const [agyTestMessage, setAgyTestMessage] = useState('');
 
   const savedCustomModel = aiSettings.aiGatewayCustomModel ?? '';
   const savedModel = aiSettings.aiGatewayModel ?? DEFAULT_AI_SETTINGS.aiGatewayModel ?? '';
@@ -288,6 +302,31 @@ const AIPanel: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openrouterEmbeddingModel]);
 
+  // ---- Antigravity / LightRAG save effects ----
+  useEffect(() => {
+    if (!isMounted.current) return;
+    if (agyPath !== (aiSettings.agyPath ?? DEFAULT_AI_SETTINGS.agyPath)) {
+      saveAiSetting('agyPath', agyPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agyPath]);
+
+  useEffect(() => {
+    if (!isMounted.current) return;
+    if (lightragBaseUrl !== (aiSettings.lightragBaseUrl ?? DEFAULT_AI_SETTINGS.lightragBaseUrl)) {
+      saveAiSetting('lightragBaseUrl', lightragBaseUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightragBaseUrl]);
+
+  useEffect(() => {
+    if (!isMounted.current) return;
+    if (lightragMode !== (aiSettings.lightragMode ?? DEFAULT_AI_SETTINGS.lightragMode)) {
+      saveAiSetting('lightragMode', lightragMode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightragMode]);
+
   // Get the effective model ID to use (either selected or custom)
   const getEffectiveModelId = useCallback(() => {
     if (selectedModel === CUSTOM_MODEL_VALUE && customModelStatus === 'valid') {
@@ -398,6 +437,27 @@ const AIPanel: React.FC = () => {
     } catch (error) {
       setConnectionStatus('error');
       setErrorMessage((error as Error).message || _('Connection failed'));
+    }
+  };
+
+  const handleTestAgy = async () => {
+    if (!isTauriAppPlatform()) return;
+    setAgyTestStatus('testing');
+    setAgyTestMessage('');
+    try {
+      const result = await tauriRunCommand(agyPath || DEFAULT_AI_SETTINGS.agyPath, ['--help'], {
+        timeoutMs: 15_000,
+      });
+      if (result.code === 0) {
+        setAgyTestStatus('success');
+        setAgyTestMessage(_('agy is available'));
+      } else {
+        setAgyTestStatus('error');
+        setAgyTestMessage(result.stderr || result.stdout || _('agy exited with an error'));
+      }
+    } catch (error) {
+      setAgyTestStatus('error');
+      setAgyTestMessage((error as Error).message || _('Failed to run agy'));
     }
   };
 
@@ -741,6 +801,78 @@ const AIPanel: React.FC = () => {
           </div>
         </BoxedList>
       )}
+
+      <BoxedList
+        title={_('Antigravity Ask')}
+        description={_(
+          'Highlight text and ask questions via the Antigravity CLI (agy). Optionally ground answers in your local LightRAG (lib-rag) index.',
+        )}
+      >
+        <div className='flex flex-col gap-2 py-3 pe-4'>
+          <SettingLabel>{_('agy Path')}</SettingLabel>
+          <input
+            type='text'
+            className='input input-sm w-full'
+            value={agyPath}
+            onChange={(e) => setAgyPath(e.target.value)}
+            placeholder='agy'
+          />
+          <span className='text-base-content/60 text-xs'>
+            {_(
+              'Shell command name for Tauri (default: agy on PATH). Must match the desktop allowlist.',
+            )}
+          </span>
+        </div>
+        <div className='flex flex-col gap-2 py-3 pe-4'>
+          <SettingLabel>{_('LightRAG Base URL')}</SettingLabel>
+          <input
+            type='text'
+            className='input input-sm w-full'
+            value={lightragBaseUrl}
+            onChange={(e) => setLightragBaseUrl(e.target.value)}
+            placeholder='http://127.0.0.1:8765'
+          />
+        </div>
+        <div className='flex flex-col gap-2 py-3 pe-4'>
+          <SettingLabel>{_('LightRAG Mode')}</SettingLabel>
+          <select
+            className='select select-sm bg-base-100 text-base-content w-full'
+            value={lightragMode}
+            onChange={(e) => setLightragMode(e.target.value as LightRAGMode)}
+          >
+            {LIGHTRAG_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {mode}
+              </option>
+            ))}
+          </select>
+        </div>
+        {isTauriAppPlatform() && (
+          <div className='flex min-h-14 items-center justify-between gap-3 pe-4'>
+            <button
+              className='btn btn-outline btn-sm'
+              onClick={handleTestAgy}
+              disabled={agyTestStatus === 'testing'}
+            >
+              {_('Test agy')}
+            </button>
+            <div>
+              {agyTestStatus === 'success' && (
+                <span className='text-success flex items-center gap-1 text-sm'>
+                  <PiCheckCircle className='size-4 shrink-0' />
+                  {agyTestMessage || _('OK')}
+                </span>
+              )}
+              {agyTestStatus === 'error' && (
+                <span className='text-error flex items-center gap-1 text-sm'>
+                  <PiWarningCircle className='size-4 shrink-0' />
+                  {agyTestMessage || _('Failed')}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </BoxedList>
 
       <BoxedList
         title={_('Reedy Retrieval (Beta)')}

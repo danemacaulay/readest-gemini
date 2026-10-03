@@ -195,6 +195,21 @@
               "validator": "^.*Readest(.*)\\.AppImage$"
             }
           ]
+        },
+        {
+          "name": "agy",
+          "cmd": "agy",
+          "args": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "agy",
+          "cmd": "agy",
+          "args": true
         }
       ]
     },
