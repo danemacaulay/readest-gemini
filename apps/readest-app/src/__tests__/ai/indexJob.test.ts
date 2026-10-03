@@ -107,6 +107,28 @@ describe('runLightRAGIndexJob', () => {
     expect(getInFlightIds().has(42)).toBe(false);
   });
 
+  it('keeps book indexed when refresh returns no indexed books yet', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify([]), { status: 200 }));
+    const runCommand: RunCommand = async (_cmd, args) => {
+      if (args.includes('show_metadata')) {
+        return ok('Tags            : Philosophy\n');
+      }
+      return ok();
+    };
+
+    await runLightRAGIndexJob({
+      filePath: FILE_PATH,
+      calibreLibraryPath: LIBRARY,
+      calibredbPath: 'calibredb',
+      calibreRagCmd: 'calibre-rag',
+      lightragBaseUrl: 'http://127.0.0.1:8765',
+      runCommand,
+    });
+
+    expect(getIndexedIds().has(42)).toBe(true);
+    expect(getInFlightIds().has(42)).toBe(false);
+  });
+
   it('skips index when tagging fails', async () => {
     const runCommand: RunCommand = async (_cmd, args) => {
       if (args.includes('show_metadata')) {

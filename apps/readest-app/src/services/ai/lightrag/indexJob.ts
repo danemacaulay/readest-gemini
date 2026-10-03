@@ -114,10 +114,10 @@ export async function runLightRAGIndexJob(opts: RunLightRAGIndexJobOpts): Promis
     }
 
     setInFlight(bookId, false);
-    markIndexed(bookId);
     if (opts.lightragBaseUrl) {
       await refreshIndexedIds(opts.lightragBaseUrl);
     }
+    markIndexed(bookId);
   } catch (err) {
     setInFlight(bookId, false);
     throw err;
