@@ -55,7 +55,7 @@ function buildAskDeps(ai: {
   };
 }
 
-function rebuildFollowUpQuestion(messages: AskPanelMessage[], followUp: string): string {
+export function rebuildFollowUpQuestion(messages: AskPanelMessage[], followUp: string): string {
   const prior = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
@@ -231,7 +231,9 @@ const AskPanel: React.FC<AskPanelProps> = ({
         }
       }
 
-      // Rare: no conversation id — one-shot Ask fallback.
+      // Rare: no conversation id — rebuild prior turns into one-shot Ask
+      // (same shape as the resume-failure path above).
+      const rebuilt = rebuildFollowUpQuestion([...messages, userTurn], question);
       const result = await runAsk(
         {
           mode: activeMode === 'ask-with-library' ? 'ask' : activeMode,
@@ -239,7 +241,7 @@ const AskPanel: React.FC<AskPanelProps> = ({
           bookTitle,
           selectionText,
           selectionCfi,
-          question,
+          question: rebuilt,
         },
         deps,
       );

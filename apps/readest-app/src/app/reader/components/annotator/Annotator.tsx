@@ -257,14 +257,24 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // cleared without the dismiss that closes them: the instant highlight quick
   // action clears it on a tap (#6419). Close them in the same render, before
   // they can render without text.
-  if (!selection && (showDictionaryPopup || showDeepLPopup || showProofreadPopup)) {
+  if (
+    !selection &&
+    (showDictionaryPopup || showDeepLPopup || showProofreadPopup || showAskComposer || showAskPanel)
+  ) {
     setShowDictionaryPopup(false);
     setShowDeepLPopup(false);
     setShowProofreadPopup(false);
+    setShowAskComposer(false);
+    setShowAskPanel(false);
   }
 
   const showingPopup =
-    showAnnotPopup || showDictionaryPopup || showDeepLPopup || showProofreadPopup;
+    showAnnotPopup ||
+    showDictionaryPopup ||
+    showDeepLPopup ||
+    showProofreadPopup ||
+    showAskComposer ||
+    showAskPanel;
 
   const popupPadding = useResponsiveSize(10);
   const trianglePadding = popupPadding * 2 + 6;
@@ -493,6 +503,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       setShowDictionaryPopup(false);
       setShowDeepLPopup(false);
       setShowProofreadPopup(false);
+      setShowAskComposer(false);
+      setShowAskPanel(false);
       setEditingAnnotation(null);
       setNoteEditorTarget(null);
     }, 500),
@@ -1291,7 +1303,16 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       // answering it with the toolbar (or, worse, re-running the quick action)
       // closed the surface on the frame it opened (#6018). Nothing can select
       // new text while one of these is up — they all sit over the page.
-      if (showDictionaryPopup || showDeepLPopup || showProofreadPopup) return;
+      // Ask composer/panel are the same class: opening Ask also suppresses
+      // native handles, and the republish must not re-open the toolbar under Ask.
+      if (
+        showDictionaryPopup ||
+        showDeepLPopup ||
+        showProofreadPopup ||
+        showAskComposer ||
+        showAskPanel
+      )
+        return;
 
       const { enableAnnotationQuickActions, annotationQuickAction } = viewSettings;
       if (wantWordLensDict) {
@@ -1404,6 +1425,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     setShowDeepLPopup(false);
     setShowDictionaryPopup(false);
     setShowProofreadPopup(false);
+    setShowAskComposer(false);
+    setShowAskPanel(false);
   };
 
   const handleCopy = (dismissPopup = true) => {
@@ -2740,12 +2763,12 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
         mode={askMode}
         selectionText={askSelectionText}
         bookTitle={bookData.book?.title || ''}
-        onClose={() => setShowAskComposer(false)}
+        onClose={handleDismissPopupShowToolbar}
         onSubmit={handleAskComposerSubmit}
       />
       <AskPanel
         open={showAskPanel}
-        onClose={() => setShowAskPanel(false)}
+        onClose={handleDismissPopupShowToolbar}
         bookHash={bookData.book?.hash || bookKey.split('-')[0]!}
         bookTitle={bookData.book?.title || ''}
         selectionText={askSelectionText}
