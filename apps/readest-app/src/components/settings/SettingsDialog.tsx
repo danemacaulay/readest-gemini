@@ -124,7 +124,9 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       tab: 'AI',
       icon: PiRobot,
       label: _('AI Assistant'),
-      disabled: process.env.NODE_ENV === 'production',
+      // Soft-fork: Ask / Antigravity / LightRAG settings must be available in
+      // production desktop builds (upstream gates this tab to development only).
+      disabled: false,
     },
     {
       tab: 'TTS',
