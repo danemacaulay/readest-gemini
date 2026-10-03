@@ -15,6 +15,7 @@ import type { TranslationFunc } from '@/hooks/useTranslation';
 import { stubTranslation as _ } from '@/utils/misc';
 import { SIZE_PER_LOC, SIZE_PER_TIME_UNIT } from '@/services/constants';
 import { isFeedBook } from '@/services/rss/feedBookUrl';
+import { parseCalibreBookId } from '@/services/ai/lightrag/calibrePath';
 import { isAbsOfflineCapable, isAudiobook } from '@/utils/audiobook';
 
 /** Valid sort types for the library */
@@ -1008,6 +1009,7 @@ export type BookContextMenuItemId =
   | 'sendNearby'
   | 'offlineDownload'
   | 'offlineRemove'
+  | 'indexLightRAG'
   | 'delete';
 
 /**
@@ -1121,7 +1123,7 @@ export const pickFresherMetadata = (
  */
 export const getBookContextMenuItemIds = (
   book: Book,
-  opts?: { localSend?: boolean; absOffline?: boolean },
+  opts?: { localSend?: boolean; absOffline?: boolean; lightRagIndex?: boolean },
 ): BookContextMenuItemId[] => {
   const ids: BookContextMenuItemId[] = ['select', 'group'];
   ids.push(book.readingStatus === 'finished' ? 'markUnread' : 'markFinished');
@@ -1150,6 +1152,11 @@ export const getBookContextMenuItemIds = (
   // filesystem, so the caller enables it on Tauri only.
   if (opts?.absOffline && isAbsOfflineCapable(book)) {
     ids.push(book.absDownloadedAt ? 'offlineRemove' : 'offlineDownload');
+  }
+  // LightRAG indexing is Tauri-only (caller sets lightRagIndex) and needs a
+  // Calibre library path that encodes the book id.
+  if (opts?.lightRagIndex && parseCalibreBookId(book.filePath) != null) {
+    ids.push('indexLightRAG');
   }
   ids.push('delete');
   return ids;

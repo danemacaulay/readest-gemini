@@ -183,4 +183,19 @@ describe('getBookContextMenuItemIds', () => {
     expect(second).toEqual(first);
     expect(new Set(first).size).toBe(first.length);
   });
+
+  it('offers indexLightRAG before delete for Calibre paths when enabled', () => {
+    const calibrePath = '/Users/x/calibre/Author/Title (958)/Title - Author.epub';
+    const book = createBook({ downloadedAt: 1, filePath: calibrePath });
+    const ids = getBookContextMenuItemIds(book, { lightRagIndex: true });
+    expect(ids).toContain('indexLightRAG');
+    expect(ids.indexOf('indexLightRAG')).toBeLessThan(ids.indexOf('delete'));
+    // Web / non-Tauri callers leave the flag off.
+    expect(getBookContextMenuItemIds(book)).not.toContain('indexLightRAG');
+    // Non-Calibre paths never get the action even when the flag is on.
+    const external = createBook({ downloadedAt: 1, filePath: '/some/external/file.epub' });
+    expect(getBookContextMenuItemIds(external, { lightRagIndex: true })).not.toContain(
+      'indexLightRAG',
+    );
+  });
 });

@@ -47,6 +47,8 @@ import { getLocalBookFilename } from '@/utils/book';
 import { MIMETYPES, EXTS } from '@/libs/document';
 import { makeSafeFilename } from '@/utils/misc';
 import { isTauriAppPlatform } from '@/services/environment';
+import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
+import { refreshIndexedIds } from '@/services/ai/lightrag/indexStatus';
 import { isLocalSendEnabled } from '@/services/localsend/devicePrefs';
 import { splitLibraryOpenIds } from '@/utils/audiobook';
 
@@ -411,6 +413,14 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   useEffect(() => {
     setCurrentBookshelf(currentShelfBooks);
   }, [currentShelfBooks, setCurrentBookshelf]);
+
+  // Hydrate LightRAG cover badges once when the library mounts (Tauri only).
+  useEffect(() => {
+    if (!isTauriAppPlatform()) return;
+    const baseUrl = settings?.aiSettings?.lightragBaseUrl || DEFAULT_AI_SETTINGS.lightragBaseUrl;
+    void refreshIndexedIds(baseUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleSelection = useCallback(
     (id: string, group?: BooksGroup) => {

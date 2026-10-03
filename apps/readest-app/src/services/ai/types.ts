@@ -49,6 +49,13 @@ export interface AISettings {
   /** LightRAG retrieve mode passed to lib-rag. */
   lightragMode: LightRAGMode;
 
+  /** Absolute path to the Calibre library folder (calibredb --with-library). */
+  calibreLibraryPath: string;
+  /** Tauri shell scope / command for lib-rag `calibre-rag` CLI. */
+  calibreRagCmd: string;
+  /** Tauri shell scope / path for `calibredb`. */
+  calibredbPath: string;
+
   spoilerProtection: boolean;
   maxContextChunks: number;
   indexingMode: 'on-demand' | 'background';

@@ -60,6 +60,11 @@ describe('DEFAULT_AI_SETTINGS', () => {
     expect(DEFAULT_AI_SETTINGS.agyPath).toBe('agy');
     expect(DEFAULT_AI_SETTINGS.lightragBaseUrl).toBe('http://127.0.0.1:8765');
     expect(DEFAULT_AI_SETTINGS.lightragMode).toBe('hybrid');
+    expect(DEFAULT_AI_SETTINGS.calibreLibraryPath).toBe('');
+    expect(DEFAULT_AI_SETTINGS.calibreRagCmd).toBe('calibre-rag');
+    expect(DEFAULT_AI_SETTINGS.calibredbPath).toBe(
+      '/Applications/calibre.app/Contents/MacOS/calibredb',
+    );
   });
 });
 
