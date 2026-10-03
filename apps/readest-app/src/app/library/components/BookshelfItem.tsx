@@ -21,6 +21,14 @@ import {
 } from '@/app/library/utils/libraryUtils';
 import { isTauriAppPlatform } from '@/services/environment';
 import { isLocalSendEnabled } from '@/services/localsend/devicePrefs';
+import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
+import { tauriRunCommand } from '@/services/ai/ask/runCommand';
+import { parseCalibreBookId } from '@/services/ai/lightrag/calibrePath';
+import { runLightRAGIndexJob } from '@/services/ai/lightrag/indexJob';
+import {
+  badgeForBookId,
+  subscribe as subscribeIndexStatus,
+} from '@/services/ai/lightrag/indexStatus';
 import BookItem from './BookItem';
 import GroupItem from './GroupItem';
 import BookContextMenuPopup, { type BookContextMenuItem } from './BookContextMenuPopup';
@@ -128,6 +136,10 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   const { appService } = useEnv();
   const { settings } = useSettingsStore();
   const { openBook } = useOpenBook({ setLoading, handleBookDownload });
+  // Rebuild the cached native menu when LightRAG index badges change so labels
+  // flip from "Add" → "Indexing…" → "Re-index" without a manual reopen.
+  const [indexStatusTick, setIndexStatusTick] = useState(0);
+  useEffect(() => subscribeIndexStatus(() => setIndexStatusTick((n) => n + 1)), []);
 
   const showBookDetailsModal = useCallback(async (book: Book) => {
     handleShowDetailsBook(book);
@@ -266,6 +278,49 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
           eventDispatcher.dispatch('localsend-send-books', { books: [book] });
         },
       },
+      indexLightRAG: (() => {
+        const bookId = parseCalibreBookId(book.filePath);
+        const badge = bookId != null ? badgeForBookId(bookId) : 'none';
+        const text =
+          badge === 'indexing'
+            ? _('Indexing in LightRAG…')
+            : badge === 'indexed'
+              ? _('Re-index in LightRAG')
+              : _('Add to LightRAG index');
+        return {
+          text,
+          action: async () => {
+            if (bookId == null || !book.filePath) return;
+            if (badgeForBookId(bookId) === 'indexing') return;
+            const ai = useSettingsStore.getState().settings?.aiSettings ?? DEFAULT_AI_SETTINGS;
+            try {
+              await runLightRAGIndexJob({
+                filePath: book.filePath,
+                calibreLibraryPath: ai.calibreLibraryPath || DEFAULT_AI_SETTINGS.calibreLibraryPath,
+                calibredbPath: ai.calibredbPath || DEFAULT_AI_SETTINGS.calibredbPath,
+                calibreRagCmd: ai.calibreRagCmd || DEFAULT_AI_SETTINGS.calibreRagCmd,
+                lightragBaseUrl: ai.lightragBaseUrl || DEFAULT_AI_SETTINGS.lightragBaseUrl,
+                runCommand: tauriRunCommand,
+              });
+              eventDispatcher.dispatch('toast', {
+                type: 'info',
+                timeout: 2000,
+                message: _('Indexed in LightRAG: {{title}}', { title: book.title }),
+              });
+            } catch (err) {
+              const message =
+                err instanceof Error && err.message
+                  ? err.message
+                  : _('Failed to index in LightRAG: {{title}}', { title: book.title });
+              eventDispatcher.dispatch('toast', {
+                type: 'error',
+                timeout: 5000,
+                message,
+              });
+            }
+          },
+        };
+      })(),
       delete: {
         text: _('Delete'),
         action: async () => {
@@ -276,6 +331,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
     return getBookContextMenuItemIds(book, {
       localSend: isTauriAppPlatform() && isLocalSendEnabled(),
       absOffline: isTauriAppPlatform(),
+      lightRagIndex: isTauriAppPlatform(),
     }).map((id) => itemOptions[id]);
   };
 
@@ -352,7 +408,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
       cachedMenuRef.current = null;
       if (cached) releaseMenu(cached);
     };
-  }, [item, itemSelected, isSelectMode, settings.localBooksDir, _]);
+  }, [item, itemSelected, isSelectMode, settings.localBooksDir, _, indexStatusTick]);
 
   const handleSelectItem = useCallback(
     throttle(() => {

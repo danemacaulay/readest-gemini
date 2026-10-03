@@ -1,6 +1,11 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import { MdCheckCircle, MdCheckCircleOutline, MdOutlineOfflinePin } from 'react-icons/md';
+import {
+  MdCheckCircle,
+  MdCheckCircleOutline,
+  MdOutlineCircle,
+  MdOutlineOfflinePin,
+} from 'react-icons/md';
 import {
   LiaCloudUploadAltSolid,
   LiaCloudDownloadAltSolid,
@@ -19,6 +24,12 @@ import { LibraryCoverFitType, LibraryViewModeType } from '@/types/settings';
 import { navigateToLogin } from '@/utils/nav';
 import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
 import { isFeedBook } from '@/services/rss/feedBookUrl';
+import { parseCalibreBookId } from '@/services/ai/lightrag/calibrePath';
+import {
+  badgeForBookId,
+  type LightRAGIndexBadge,
+  subscribe as subscribeIndexStatus,
+} from '@/services/ai/lightrag/indexStatus';
 import { isAudiobook } from '@/utils/audiobook';
 import { formatAuthors, formatDescription, formatSeries } from '@/utils/book';
 import { splitDuration } from '@/utils/time';
@@ -66,6 +77,20 @@ const BookItem: React.FC<BookItemProps> = ({
   useEffect(() => {
     setCoverAspect(null);
   }, [book.hash, book.metadata?.coverImageUrl, book.coverImageUrl]);
+
+  const calibreBookId = parseCalibreBookId(book.filePath);
+  const [lightRagBadge, setLightRagBadge] = useState<LightRAGIndexBadge | null>(() =>
+    calibreBookId != null ? badgeForBookId(calibreBookId) : null,
+  );
+  useEffect(() => {
+    if (calibreBookId == null) {
+      setLightRagBadge(null);
+      return;
+    }
+    const sync = () => setLightRagBadge(badgeForBookId(calibreBookId));
+    sync();
+    return subscribeIndexStatus(sync);
+  }, [calibreBookId]);
 
   const CELL_ASPECT_RATIO = 28 / 41;
   const fitCoverInGrid = mode === 'grid' && coverFit === 'fit' && coverAspect !== null;
@@ -174,6 +199,33 @@ const BookItem: React.FC<BookItemProps> = ({
               <MdCheckCircle className='fill-blue-500' />
             ) : (
               <MdCheckCircleOutline className='fill-gray-300 drop-shadow-xs' />
+            )}
+          </div>
+        )}
+        {lightRagBadge != null && !isSelectMode && (
+          <div
+            className='pointer-events-none absolute bottom-1 end-1 drop-shadow-xs'
+            aria-label={
+              lightRagBadge === 'indexing'
+                ? _('Indexing in LightRAG…')
+                : lightRagBadge === 'indexed'
+                  ? _('Indexed in LightRAG')
+                  : _('Not in LightRAG index')
+            }
+            title={
+              lightRagBadge === 'indexing'
+                ? _('Indexing in LightRAG…')
+                : lightRagBadge === 'indexed'
+                  ? _('Indexed in LightRAG')
+                  : _('Not in LightRAG index')
+            }
+          >
+            {lightRagBadge === 'indexing' ? (
+              <span className='loading loading-spinner loading-xs text-white' />
+            ) : lightRagBadge === 'indexed' ? (
+              <MdCheckCircle className='h-3.5 w-3.5 fill-emerald-400' />
+            ) : (
+              <MdOutlineCircle className='h-3.5 w-3.5 fill-none text-white/80' />
             )}
           </div>
         )}
