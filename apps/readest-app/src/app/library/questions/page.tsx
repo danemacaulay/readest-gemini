@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { IoArrowBack } from 'react-icons/io5';
 
 import HistoryList from '@/components/ask/HistoryList';
@@ -12,26 +12,36 @@ import { useLibrary } from '@/hooks/useLibrary';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemeStore } from '@/store/themeStore';
 import { useLibraryStore } from '@/store/libraryStore';
-import { useSettingsStore } from '@/store/settingsStore';
 import { useTrafficLight } from '@/hooks/useTrafficLight';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { QAThread } from '@/services/ai/history/types';
-import { navigateToLibrary, navigateToReader, showReaderWindow } from '@/utils/nav';
+import { navigateToLibrary } from '@/utils/nav';
+import { useBookTransferActions } from '../hooks/useBookTransferActions';
+import { useOpenBook } from '../hooks/useOpenBook';
 
 /**
  * Global Ask / Ask-with-library history. Searchable across books; opening a
  * thread jumps to the book (and CFI when available) and restores the panel.
+ * Opens go through {@link useOpenBook} so cloud-only books download first.
  */
 export default function QuestionsPage() {
   const _ = useTranslation();
   const router = useAppRouter();
-  const { appService } = useEnv();
+  const { envConfig, appService } = useEnv();
   const { libraryLoaded } = useLibrary();
-  const { getBookByHash } = useLibraryStore();
-  const { settings } = useSettingsStore();
+  const { getBookByHash, updateBook } = useLibraryStore();
   const { safeAreaInsets: insets, isRoundedWindow } = useThemeStore();
   const headerRef = useRef<HTMLDivElement>(null);
   const { isTrafficLightVisible } = useTrafficLight(headerRef);
+  const [, setLoading] = useState(false);
+  // Progress overlays live on the shelf; Questions only needs download success.
+  const { handleBookDownload } = useBookTransferActions(
+    envConfig,
+    appService,
+    updateBook,
+    () => {},
+  );
+  const { openBook } = useOpenBook({ setLoading, handleBookDownload });
 
   useTheme({ systemUIVisible: true, appThemeColor: 'base-200' });
 
@@ -52,21 +62,9 @@ export default function QuestionsPage() {
     (thread: QAThread) => {
       const book = getBookByHash(thread.bookHash);
       if (!book || book.deletedAt) return;
-
-      const params = new URLSearchParams();
-      if (thread.selectionCfi) params.set('cfi', thread.selectionCfi);
-      params.set('threadId', thread.id);
-      const queryParams = params.toString();
-
-      if (appService?.hasWindow && settings.openBookInNewWindow) {
-        showReaderWindow(appService, [book.hash], queryParams);
-      } else {
-        setTimeout(() => {
-          navigateToReader(router, [book.hash], queryParams);
-        }, 0);
-      }
+      void openBook(book, thread.selectionCfi, { threadId: thread.id });
     },
-    [appService, getBookByHash, router, settings.openBookInNewWindow],
+    [getBookByHash, openBook],
   );
 
   if (!insets) return null;

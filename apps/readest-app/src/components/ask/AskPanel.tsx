@@ -190,7 +190,17 @@ const AskPanel: React.FC<AskPanelProps> = ({
     }
   };
 
-  const runInitialAsk = async (question: string, askMode: AskMode) => {
+  const runInitialAsk = async (
+    question: string,
+    askMode: AskMode,
+    /**
+     * Pass selection explicitly when calling immediately after setState —
+     * React has not flushed displaySelection* yet (e.g. new Ask after restore).
+     */
+    selection?: { text: string; cfi?: string },
+  ) => {
+    const selText = selection?.text ?? displaySelectionText;
+    const selCfi = selection?.cfi ?? displaySelectionCfi;
     const deps = buildAskDeps(aiSettings);
     setBusy(true);
     setMessages([
@@ -207,8 +217,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
           mode: askMode,
           bookHash,
           bookTitle,
-          selectionText: displaySelectionText,
-          selectionCfi: displaySelectionCfi,
+          selectionText: selText,
+          selectionCfi: selCfi,
           question,
         },
         deps,
@@ -227,8 +237,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
       void persistTurn({
         question,
         answer: result.answer,
-        selectionText: displaySelectionText,
-        selectionCfi: displaySelectionCfi,
+        selectionText: selText,
+        selectionCfi: selCfi,
         sources: result.sources,
         grounded: result.grounded,
         agyConversationId: result.agyConversationId,
@@ -267,7 +277,12 @@ const AskPanel: React.FC<AskPanelProps> = ({
     setActiveThreadId(undefined);
     activeThreadIdRef.current = undefined;
     setActiveMode(mode);
-    void runInitialAsk(initialQuestion.trim(), mode);
+    // Pass selection as locals — displaySelection* state is still the prior
+    // restore values until the next render.
+    void runInitialAsk(initialQuestion.trim(), mode, {
+      text: selectionText,
+      cfi: selectionCfi,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, threadEpoch, initialQuestion, mode, restore]);
 
