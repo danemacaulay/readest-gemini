@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { RiDeleteBinLine } from 'react-icons/ri';
 
 import * as CFI from 'foliate-js/epubcfi.js';
@@ -104,13 +103,6 @@ import ProofreadPopup from './ProofreadPopup';
 import { setProofreadRulesVisibility } from '@/app/reader/components/ProofreadRules';
 import ExportMarkdownDialog from './ExportMarkdownDialog';
 import ImportAnnotationsDialog from './ImportAnnotationsDialog';
-import AskComposer from '@/components/ask/AskComposer';
-import AskPanel, { type AskPanelRestore } from '@/components/ask/AskPanel';
-import type { AskMode } from '@/services/ai/ask/types';
-import {
-  createPersistentHistoryStore,
-  fileSystemFromAppService,
-} from '@/services/ai/history/historyStore';
 import Alert from '@/components/Alert';
 import ModalPortal from '@/components/ModalPortal';
 import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
@@ -141,7 +133,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   gridInsets = ZERO_INSETS,
 }) => {
   const _ = useTranslation();
-  const searchParams = useSearchParams();
   const { envConfig, appService } = useEnv();
   const { settings, setSettingsDialogBookKey, setSettingsDialogOpen, setActiveSettingsItemId } =
     useSettingsStore();
@@ -198,15 +189,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const [showDictionaryPopup, setShowDictionaryPopup] = useState(false);
   const [showDeepLPopup, setShowDeepLPopup] = useState(false);
   const [showProofreadPopup, setShowProofreadPopup] = useState(false);
-  const [showAskComposer, setShowAskComposer] = useState(false);
-  const [showAskPanel, setShowAskPanel] = useState(false);
-  const [askMode, setAskMode] = useState<AskMode>('ask');
-  const [askSelectionText, setAskSelectionText] = useState('');
-  const [askSelectionCfi, setAskSelectionCfi] = useState<string | undefined>();
-  const [askInitialQuestion, setAskInitialQuestion] = useState('');
-  const [askThreadEpoch, setAskThreadEpoch] = useState(0);
-  const [askRestore, setAskRestore] = useState<AskPanelRestore | null>(null);
-  const askRestoreConsumedRef = useRef<string | null>(null);
   const [trianglePosition, setTrianglePosition] = useState<Position>();
   const [annotPopupPosition, setAnnotPopupPosition] = useState<Position>();
   // The side of the tapped word the footnote popup took, when one is open: a
@@ -264,30 +246,15 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // The lookup surfaces read the selection they were opened on, but it can be
   // cleared without the dismiss that closes them: the instant highlight quick
   // action clears it on a tap (#6419). Close them in the same render, before
-  // they can render without text. Restored Ask history threads have no live
-  // selection, so keep AskPanel open when askRestore is set.
-  if (
-    !selection &&
-    (showDictionaryPopup ||
-      showDeepLPopup ||
-      showProofreadPopup ||
-      showAskComposer ||
-      (showAskPanel && !askRestore))
-  ) {
+  // they can render without text.
+  if (!selection && (showDictionaryPopup || showDeepLPopup || showProofreadPopup)) {
     setShowDictionaryPopup(false);
     setShowDeepLPopup(false);
     setShowProofreadPopup(false);
-    setShowAskComposer(false);
-    if (!askRestore) setShowAskPanel(false);
   }
 
   const showingPopup =
-    showAnnotPopup ||
-    showDictionaryPopup ||
-    showDeepLPopup ||
-    showProofreadPopup ||
-    showAskComposer ||
-    showAskPanel;
+    showAnnotPopup || showDictionaryPopup || showDeepLPopup || showProofreadPopup;
 
   const popupPadding = useResponsiveSize(10);
   const trianglePadding = popupPadding * 2 + 6;
@@ -516,8 +483,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       setShowDictionaryPopup(false);
       setShowDeepLPopup(false);
       setShowProofreadPopup(false);
-      setShowAskComposer(false);
-      setShowAskPanel(false);
       setEditingAnnotation(null);
       setNoteEditorTarget(null);
     }, 500),
@@ -1316,16 +1281,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       // answering it with the toolbar (or, worse, re-running the quick action)
       // closed the surface on the frame it opened (#6018). Nothing can select
       // new text while one of these is up — they all sit over the page.
-      // Ask composer/panel are the same class: opening Ask also suppresses
-      // native handles, and the republish must not re-open the toolbar under Ask.
-      if (
-        showDictionaryPopup ||
-        showDeepLPopup ||
-        showProofreadPopup ||
-        showAskComposer ||
-        showAskPanel
-      )
-        return;
+      if (showDictionaryPopup || showDeepLPopup || showProofreadPopup) return;
 
       const { enableAnnotationQuickActions, annotationQuickAction } = viewSettings;
       if (wantWordLensDict) {
@@ -1438,8 +1394,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     setShowDeepLPopup(false);
     setShowDictionaryPopup(false);
     setShowProofreadPopup(false);
-    setShowAskComposer(false);
-    setShowAskPanel(false);
   };
 
   const handleCopy = (dismissPopup = true) => {
@@ -1857,94 +1811,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     void suppressNativeSelectionHandles();
     setShowDeepLPopup(true);
   };
-
-  // New highlight Ask always starts a new Antigravity conversation thread.
-  const handleAsk = (mode: AskMode) => {
-    if (!selection || !selection.text) return;
-    setShowAnnotPopup(false);
-    void suppressNativeSelectionHandles();
-    setAskRestore(null);
-    setAskMode(mode);
-    setAskSelectionText(selection.text);
-    setAskSelectionCfi(selection.cfi);
-    setAskInitialQuestion('');
-    setAskThreadEpoch((n) => n + 1);
-    setShowAskPanel(false);
-    setShowAskComposer(true);
-  };
-
-  const handleAskComposerSubmit = (question: string) => {
-    setAskInitialQuestion(question);
-    setShowAskComposer(false);
-    setShowAskPanel(true);
-  };
-
-  // Global Questions history: ?threadId=… opens AskPanel with prior messages.
-  // CFI scroll is handled by FoliateViewer via ?cfi= (best-effort).
-  useEffect(() => {
-    const threadId = searchParams?.get('threadId');
-    if (!threadId || !appService) return;
-    if (askRestoreConsumedRef.current === threadId) return;
-
-    const bookHash = bookData.book?.hash || bookKey.split('-')[0] || '';
-    let cancelled = false;
-
-    const restore = async () => {
-      try {
-        const store = createPersistentHistoryStore(fileSystemFromAppService(appService));
-        const [messages, thread] = await Promise.all([
-          store.getMessages(threadId),
-          store.getThread(threadId),
-        ]);
-        if (cancelled) return;
-        if (!thread || thread.bookHash !== bookHash) return;
-
-        askRestoreConsumedRef.current = threadId;
-        const firstSelection = messages.find((m) => m.selectionText)?.selectionText;
-        setAskRestore({
-          threadId,
-          agyConversationId: thread.agyConversationId,
-          selectionText: firstSelection,
-          selectionCfi: thread.selectionCfi,
-          grounded: thread.grounded,
-          messages: messages.map((m) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            sources: m.sources,
-            // Persist grounded on the message so empty source lists still restore chips.
-            grounded: m.role === 'assistant' ? (m.grounded ?? !!m.sources?.length) : undefined,
-          })),
-        });
-        setAskMode(thread.grounded ? 'ask-with-library' : 'ask');
-        setAskSelectionText(firstSelection || '');
-        setAskSelectionCfi(thread.selectionCfi);
-        setAskInitialQuestion('');
-        setAskThreadEpoch((n) => n + 1);
-        setShowAskComposer(false);
-        setShowAskPanel(true);
-
-        // Drop threadId from the URL so refresh doesn't re-open; keep cfi.
-        try {
-          const url = new URL(window.location.href);
-          if (url.searchParams.has('threadId')) {
-            url.searchParams.delete('threadId');
-            window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-          }
-        } catch {
-          // ignore URL rewrite failures
-        }
-      } catch (err) {
-        console.warn('Failed to restore Ask thread:', err);
-      }
-    };
-
-    void restore();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, appService, bookKey, bookData.book?.hash]);
 
   // `oneTime` is required rather than defaulted: it decides whether this reads
   // the selection and stops or starts an open-ended session from it, and every
@@ -2629,18 +2495,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
         return { tooltipText: _(label), Icon, onClick: handleDictionary };
       case 'translate':
         return { tooltipText: _(label), Icon, onClick: handleTranslation };
-      case 'ask':
-        return {
-          tooltipText: _(label),
-          Icon,
-          onClick: () => handleAsk('ask'),
-        };
-      case 'ask-with-library':
-        return {
-          tooltipText: _(label),
-          Icon,
-          onClick: () => handleAsk('ask-with-library'),
-        };
       case 'tts':
         return {
           tooltipText: _(label),
@@ -2708,12 +2562,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // toolbar: hide them while any of those is open, and let them come back with
   // the toolbar (or go with the dismiss).
   const overlaySurfaceOpen =
-    showDictionaryPopup ||
-    showDeepLPopup ||
-    showProofreadPopup ||
-    showAskComposer ||
-    showAskPanel ||
-    !!noteEditorTarget;
+    showDictionaryPopup || showDeepLPopup || showProofreadPopup || !!noteEditorTarget;
 
   // Below `sm` (or short landscape) the note editor is a bottom sheet rather
   // than a popup pinned to the selection: an anchored editor would sit under
@@ -2839,34 +2688,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           }}
         />
       )}
-      <AskComposer
-        open={showAskComposer}
-        mode={askMode}
-        selectionText={askSelectionText}
-        bookTitle={bookData.book?.title || ''}
-        onClose={handleDismissPopupShowToolbar}
-        onSubmit={handleAskComposerSubmit}
-      />
-      <AskPanel
-        open={showAskPanel}
-        onClose={() => {
-          const wasRestore = !!askRestore;
-          setAskRestore(null);
-          if (wasRestore) {
-            setShowAskPanel(false);
-          } else {
-            handleDismissPopupShowToolbar();
-          }
-        }}
-        bookHash={bookData.book?.hash || bookKey.split('-')[0]!}
-        bookTitle={bookData.book?.title || ''}
-        selectionText={askSelectionText}
-        selectionCfi={askSelectionCfi}
-        mode={askMode}
-        initialQuestion={askInitialQuestion}
-        threadEpoch={askThreadEpoch}
-        restore={askRestore}
-      />
       {!editingAnnotation &&
         !overlaySurfaceOpen &&
         selection?.handlesSuppressed &&

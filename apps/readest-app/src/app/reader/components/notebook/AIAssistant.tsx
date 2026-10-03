@@ -17,6 +17,7 @@ import { useBookProgress } from '@/store/readerProgressStore';
 import { useAIChatStore } from '@/store/aiChatStore';
 import { aiLogger, createTauriAdapter } from '@/services/ai';
 import {
+  createAntigravityChatAdapter,
   LegacyIdbBackend,
   ReedyBackend,
   ReedySourceStore,
@@ -24,13 +25,13 @@ import {
   type RetrievalBackend,
   type SourceItem,
 } from '@/services/ai/adapters';
+import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import type { EmbeddingProgress, AISettings, AIMessage } from '@/services/ai/types';
 import type { RetrievedChunk } from '@/services/reedy/retrieval/BookRetriever';
 import { useEnv } from '@/context/EnvContext';
 import { isTauriAppPlatform } from '@/services/environment';
 import type { AppService } from '@/types/system';
-import { ReedyAssistant } from '@/services/reedy/ui/ReedyAssistant';
-import type { ReadingContextSnapshot } from '@/services/reedy/tools/builtins/types';
+import type { ChatModelAdapter } from '@assistant-ui/react';
 
 import { Button } from '@/components/ui/button';
 import { Loader2Icon, BookOpenIcon } from 'lucide-react';
@@ -74,7 +75,119 @@ interface AIAssistantProps {
   bookKey: string;
 }
 
-// inner component that uses the runtime hook
+function useThreadHistoryAdapter() {
+  const {
+    activeConversationId,
+    messages: storedMessages,
+    addMessage,
+    isLoadingHistory,
+  } = useAIChatStore();
+
+  const historyAdapter = useMemo<ThreadHistoryAdapter | undefined>(() => {
+    if (!activeConversationId) return undefined;
+
+    return {
+      async load() {
+        return {
+          messages: convertToExportedMessages(storedMessages),
+        };
+      },
+      async append(item) {
+        const msg = item.message;
+        if (activeConversationId && msg.role !== 'system') {
+          const textContent = msg.content
+            .filter(
+              (part): part is { type: 'text'; text: string } =>
+                'type' in part && part.type === 'text',
+            )
+            .map((part) => part.text)
+            .join('\n');
+
+          if (textContent) {
+            await addMessage({
+              conversationId: activeConversationId,
+              role: msg.role as 'user' | 'assistant',
+              content: textContent,
+            });
+          }
+        }
+      },
+    };
+  }, [activeConversationId, storedMessages, addMessage]);
+
+  return {
+    historyAdapter,
+    isLoadingHistory,
+    hasActiveConversation: !!activeConversationId,
+    activeConversationId,
+  };
+}
+
+/** Desktop path: Antigravity CLI + optional LightRAG via agy (no book index gate). */
+const AntigravityAIAssistantChat = ({
+  aiSettings,
+  bookTitle,
+  authorName,
+}: {
+  aiSettings: AISettings;
+  bookTitle: string;
+  authorName: string;
+}) => {
+  const { activeConversationId, conversations, setAgyConversationId } = useAIChatStore();
+  const { historyAdapter, isLoadingHistory, hasActiveConversation } = useThreadHistoryAdapter();
+
+  const emptySourceStore = useMemo(() => new ReedySourceStore(), []);
+
+  const agyConversationId =
+    conversations.find((c) => c.id === activeConversationId)?.agyConversationId ?? null;
+
+  const optionsRef = useRef({
+    settings: aiSettings,
+    bookTitle,
+    authorName,
+    agyConversationId,
+    onAgyConversationId: (id: string) => {
+      if (activeConversationId) {
+        void setAgyConversationId(activeConversationId, id);
+      }
+    },
+    runCommand: tauriRunCommand,
+  });
+
+  useEffect(() => {
+    optionsRef.current = {
+      settings: aiSettings,
+      bookTitle,
+      authorName,
+      agyConversationId,
+      onAgyConversationId: (id: string) => {
+        if (activeConversationId) {
+          void setAgyConversationId(activeConversationId, id);
+        }
+      },
+      runCommand: tauriRunCommand,
+    };
+  });
+
+  const adapter = useMemo(() => {
+    // eslint-disable-next-line react-hooks/refs -- intentional: deferred optionsRef read
+    return createAntigravityChatAdapter(() => optionsRef.current);
+  }, []);
+
+  return (
+    <AIAssistantWithRuntime
+      adapter={adapter}
+      historyAdapter={historyAdapter}
+      onResetIndex={() => undefined}
+      isLoadingHistory={isLoadingHistory}
+      hasActiveConversation={hasActiveConversation}
+      sourceStore={emptySourceStore}
+      currentTurnId={null}
+    />
+  );
+};
+
+// Web / legacy path that uses the runtime hook + retrieval backends
 const AIAssistantChat = ({
   aiSettings,
   bookHash,
@@ -100,12 +213,7 @@ const AIAssistantChat = ({
   onSourceClick?: (source: SourceItem) => void;
   onResetIndex: () => void;
 }) => {
-  const {
-    activeConversationId,
-    messages: storedMessages,
-    addMessage,
-    isLoadingHistory,
-  } = useAIChatStore();
+  const { historyAdapter, isLoadingHistory, hasActiveConversation } = useThreadHistoryAdapter();
 
   // use a ref to keep up-to-date options without triggering re-renders of the runtime
   const optionsRef = useRef({
@@ -139,49 +247,13 @@ const AIAssistantChat = ({
     return createTauriAdapter(() => optionsRef.current);
   }, []);
 
-  // Create history adapter to load/persist messages
-  const historyAdapter = useMemo<ThreadHistoryAdapter | undefined>(() => {
-    if (!activeConversationId) return undefined;
-
-    return {
-      async load() {
-        // storedMessages are already loaded by aiChatStore when conversation is selected
-        return {
-          messages: convertToExportedMessages(storedMessages),
-        };
-      },
-      async append(item) {
-        // item is ExportedMessageRepositoryItem - access the actual message via .message
-        const msg = item.message;
-        // Persist new messages to our store
-        if (activeConversationId && msg.role !== 'system') {
-          const textContent = msg.content
-            .filter(
-              (part): part is { type: 'text'; text: string } =>
-                'type' in part && part.type === 'text',
-            )
-            .map((part) => part.text)
-            .join('\n');
-
-          if (textContent) {
-            await addMessage({
-              conversationId: activeConversationId,
-              role: msg.role as 'user' | 'assistant',
-              content: textContent,
-            });
-          }
-        }
-      },
-    };
-  }, [activeConversationId, storedMessages, addMessage]);
-
   return (
     <AIAssistantWithRuntime
       adapter={adapter}
       historyAdapter={historyAdapter}
       onResetIndex={onResetIndex}
       isLoadingHistory={isLoadingHistory}
-      hasActiveConversation={!!activeConversationId}
+      hasActiveConversation={hasActiveConversation}
       sourceStore={sourceStore}
       currentTurnId={currentTurnId}
       onSourceClick={onSourceClick}
@@ -199,7 +271,7 @@ const AIAssistantWithRuntime = ({
   currentTurnId,
   onSourceClick,
 }: {
-  adapter: NonNullable<ReturnType<typeof createTauriAdapter>>;
+  adapter: ChatModelAdapter;
   historyAdapter?: ThreadHistoryAdapter;
   onResetIndex: () => void;
   isLoadingHistory: boolean;
@@ -280,30 +352,39 @@ const ThreadWrapper = ({
 };
 
 /**
- * Phase 4.3 router. Switches between the legacy / Reedy-MVP path
- * (LegacyAIAssistant) and the Phase 4 agent-runtime path
- * (ReedyAgentAssistantBridge) based on aiSettings.reedy.runtime.
- *
- * The split is at component boundary rather than inside one component
- * so hooks always run in stable order on whichever path is rendered.
+ * Router: Tauri desktop uses Antigravity notebook chat (bypasses Reedy).
+ * Web keeps the legacy / Reedy-MVP path. Reedy agent runtime is not used
+ * on the unified desktop path.
  */
 const AIAssistant = ({ bookKey }: AIAssistantProps) => {
-  const { appService } = useEnv();
+  if (isTauriAppPlatform()) return <AntigravityNotebookAssistant bookKey={bookKey} />;
+  return <LegacyAIAssistant bookKey={bookKey} />;
+};
+
+const AntigravityNotebookAssistant = ({ bookKey }: AIAssistantProps) => {
+  const _ = useTranslation();
   const { settings } = useSettingsStore();
   const getBookData = useBookDataStore((s) => s.getBookData);
   const bookData = getBookData(bookKey);
+  const aiSettings = settings?.aiSettings;
+  const bookTitle = bookData?.book?.title || 'Unknown';
+  const authorName = bookData?.book?.author || '';
 
-  const reedyRuntime = settings?.aiSettings?.reedy?.runtime ?? 'mvp';
-  const useAgentRuntime =
-    settings?.aiSettings?.enabled === true &&
-    settings?.aiSettings?.reedy?.enabled === true &&
-    reedyRuntime === 'agent' &&
-    !!appService &&
-    isTauriAppPlatform() &&
-    !!bookData?.bookDoc;
+  if (!aiSettings?.enabled) {
+    return (
+      <div className='flex h-full items-center justify-center p-4'>
+        <p className='text-muted-foreground text-sm'>{_('Enable AI in Settings')}</p>
+      </div>
+    );
+  }
 
-  if (useAgentRuntime) return <ReedyAgentAssistantBridge bookKey={bookKey} />;
-  return <LegacyAIAssistant bookKey={bookKey} />;
+  return (
+    <AntigravityAIAssistantChat
+      aiSettings={aiSettings}
+      bookTitle={bookTitle}
+      authorName={authorName}
+    />
+  );
 };
 
 const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
@@ -463,59 +544,6 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
       setCurrentTurnId={setCurrentTurnId}
       onSourceClick={handleSourceClick}
       onResetIndex={handleResetIndex}
-    />
-  );
-};
-
-/**
- * Bridge from the notebook AI tab into the Phase 4 ReedyAssistant.
- *
- * Kept separate from AIAssistant so legacy props/state don't leak in
- * and we don't pay the cost of constructing the agent runtime when the
- * user is on the MVP path. The flag check in AIAssistant guarantees this
- * only renders when aiSettings.reedy.runtime === 'agent'.
- */
-const ReedyAgentAssistantBridge = ({ bookKey }: AIAssistantProps) => {
-  const { appService } = useEnv();
-  const { settings } = useSettingsStore();
-  const getBookData = useBookDataStore((s) => s.getBookData);
-  const getView = useReaderStore((s) => s.getView);
-  const bookData = getBookData(bookKey);
-  // Reactive: agent runtime needs the latest reading position to seed
-  // tool calls.
-  const progress = useBookProgress(bookKey);
-
-  const bookHash = bookKey.split('-')[0] || '';
-  const aiSettings = settings?.aiSettings;
-
-  const readingContext = useMemo<ReadingContextSnapshot>(
-    () => ({
-      cfi: progress?.location ?? null,
-      sectionIndex: progress?.section?.current ?? 0,
-      chapterTitle: progress?.sectionLabel ?? null,
-      pageNumber: progress?.pageinfo?.current ?? 0,
-    }),
-    [progress],
-  );
-
-  const handleNavigate = useCallback(
-    (cfi: string) => {
-      getView(bookKey)?.goTo(cfi);
-    },
-    [bookKey, getView],
-  );
-
-  if (!aiSettings || !appService || !bookData?.bookDoc) return null;
-
-  return (
-    <ReedyAssistant
-      appService={appService as AppService}
-      bookDoc={bookData.bookDoc}
-      bookHash={bookHash}
-      bookKey={bookKey}
-      aiSettings={aiSettings}
-      readingContext={readingContext}
-      onNavigateToCfi={handleNavigate}
     />
   );
 };

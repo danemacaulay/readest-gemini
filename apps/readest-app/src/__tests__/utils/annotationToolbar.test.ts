@@ -17,7 +17,7 @@ describe('annotationToolbar helpers', () => {
     expect(ALL_ANNOTATION_TOOL_TYPES).toEqual(annotationToolButtons.map((b) => b.type));
   });
 
-  test('default toolbar includes Ask tools and excludes share/copylink', () => {
+  test('default toolbar excludes share/copylink and retired Ask tools', () => {
     expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).toEqual([
       'copy',
       'highlight',
@@ -25,12 +25,12 @@ describe('annotationToolbar helpers', () => {
       'search',
       'dictionary',
       'translate',
-      'ask',
-      'ask-with-library',
       'tts',
       'proofread',
     ]);
     expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).not.toContain('share');
+    expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).not.toContain('ask');
+    expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).not.toContain('ask-with-library');
   });
 
   test('copylink is opt-in: off the default toolbar, offered in the available tray', () => {
@@ -65,11 +65,16 @@ describe('annotationToolbar helpers', () => {
       'search',
       'dictionary',
       'translate',
-      'ask',
-      'ask-with-library',
       'tts',
       'proofread',
       'share',
+    ]);
+  });
+
+  test('sanitize drops retired Ask tools from persisted configs', () => {
+    expect(getToolbarToolTypes(['copy', 'ask', 'ask-with-library', 'tts'] as never, true)).toEqual([
+      'copy',
+      'tts',
     ]);
   });
 

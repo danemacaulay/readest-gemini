@@ -73,10 +73,20 @@ export async function completeWithAntigravity(
     timeoutMs?: number;
     runCommand: RunCommand;
     conversationId?: string;
+    /**
+     * When true (default), pass `--sandbox` for terminal restrictions.
+     * Notebook chat sets false so agy can HTTP-retrieve from local LightRAG.
+     */
+    sandbox?: boolean;
+    /** When true, pass `--dangerously-skip-permissions` for headless tool use. */
+    skipPermissions?: boolean;
   },
 ): Promise<AgyParsedOutput> {
   const timeoutMs = opts.timeoutMs ?? 5 * 60 * 1000;
-  const args = ['-p', prompt, '--output-format', 'stream-json', '--sandbox'];
+  const sandbox = opts.sandbox !== false;
+  const args = ['-p', prompt, '--output-format', 'stream-json'];
+  if (sandbox) args.push('--sandbox');
+  if (opts.skipPermissions) args.push('--dangerously-skip-permissions');
   if (opts.conversationId) {
     args.push('--conversation', opts.conversationId);
   }

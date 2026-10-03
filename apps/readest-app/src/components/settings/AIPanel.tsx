@@ -509,40 +509,43 @@ const AIPanel: React.FC = () => {
         />
       </BoxedList>
 
-      <BoxedList title={_('Provider')} className={disabledSection}>
-        <SettingsRow label={_('Ollama (Local)')} asLabel>
-          <input
-            type='radio'
-            name='ai-provider'
-            className='radio'
-            checked={provider === 'ollama'}
-            onChange={() => setProvider('ollama')}
-            disabled={!enabled}
-          />
-        </SettingsRow>
-        <SettingsRow label={_('AI Gateway (Cloud)')} asLabel>
-          <input
-            type='radio'
-            name='ai-provider'
-            className='radio'
-            checked={provider === 'ai-gateway'}
-            onChange={() => setProvider('ai-gateway')}
-            disabled={!enabled}
-          />
-        </SettingsRow>
-        <SettingsRow label={_('OpenAI Compatible')} asLabel>
-          <input
-            type='radio'
-            name='ai-provider'
-            className='radio'
-            checked={provider === 'openrouter'}
-            onChange={() => setProvider('openrouter')}
-            disabled={!enabled}
-          />
-        </SettingsRow>
-      </BoxedList>
+      {/* Desktop notebook chat uses Antigravity only; keep cloud/local providers for web. */}
+      {!isTauriAppPlatform() && (
+        <BoxedList title={_('Provider')} className={disabledSection}>
+          <SettingsRow label={_('Ollama (Local)')} asLabel>
+            <input
+              type='radio'
+              name='ai-provider'
+              className='radio'
+              checked={provider === 'ollama'}
+              onChange={() => setProvider('ollama')}
+              disabled={!enabled}
+            />
+          </SettingsRow>
+          <SettingsRow label={_('AI Gateway (Cloud)')} asLabel>
+            <input
+              type='radio'
+              name='ai-provider'
+              className='radio'
+              checked={provider === 'ai-gateway'}
+              onChange={() => setProvider('ai-gateway')}
+              disabled={!enabled}
+            />
+          </SettingsRow>
+          <SettingsRow label={_('OpenAI Compatible')} asLabel>
+            <input
+              type='radio'
+              name='ai-provider'
+              className='radio'
+              checked={provider === 'openrouter'}
+              onChange={() => setProvider('openrouter')}
+              disabled={!enabled}
+            />
+          </SettingsRow>
+        </BoxedList>
+      )}
 
-      {provider === 'ollama' && (
+      {!isTauriAppPlatform() && provider === 'ollama' && (
         <BoxedList title={_('Ollama Configuration')} className={disabledSection}>
           {/* Stacked-content rows: label-on-top, input below — used when the
               control is too wide to fit alongside the label (full-width text
@@ -611,7 +614,7 @@ const AIPanel: React.FC = () => {
         </BoxedList>
       )}
 
-      {provider === 'ai-gateway' && (
+      {!isTauriAppPlatform() && provider === 'ai-gateway' && (
         <BoxedList
           title={_('AI Gateway Configuration')}
           description={_(
@@ -700,7 +703,7 @@ const AIPanel: React.FC = () => {
         </BoxedList>
       )}
 
-      {provider === 'openrouter' && (
+      {!isTauriAppPlatform() && provider === 'openrouter' && (
         <BoxedList
           title={_('OpenAI Compatible Configuration')}
           description={_(
@@ -839,10 +842,11 @@ const AIPanel: React.FC = () => {
       )}
 
       <BoxedList
-        title={_('Antigravity Ask')}
+        title={_('Antigravity')}
         description={_(
-          'Highlight text and ask questions via the Antigravity CLI (agy). Optionally ground answers in your local LightRAG (lib-rag) index.',
+          'Desktop notebook chat runs through the Antigravity CLI (agy). When helpful, agy can retrieve from your local LightRAG (lib-rag) index using the URL and mode below.',
         )}
+        className={isTauriAppPlatform() ? disabledSection : undefined}
       >
         <div className='flex flex-col gap-2 py-3 pe-4'>
           <SettingLabel>{_('agy shell scope')}</SettingLabel>
@@ -953,98 +957,99 @@ const AIPanel: React.FC = () => {
         )}
       </BoxedList>
 
-      <BoxedList
-        title={_('Reedy Retrieval (Beta)')}
-        className={disabledSection}
-        description={
-          isTauriAppPlatform()
-            ? _(
-                'Uses Turso vector search + CFI-anchored citations. The model decides when to look up passages instead of getting them stuffed into the system prompt.',
-              )
-            : _('Reedy is desktop-only in this beta. Use the Readest desktop app to try it.')
-        }
-      >
-        <SettingsSwitchRow
-          label={_('Use Reedy retrieval')}
-          checked={reedyEnabled}
-          disabled={!enabled || !isTauriAppPlatform()}
-          onChange={() => {
-            const next = !reedyEnabled;
-            setReedyEnabled(next);
-            saveAiSetting('reedy', {
-              enabled: next,
-              runtime: reedyAgentRuntime ? 'agent' : 'mvp',
-            });
-          }}
-        />
-        <SettingsSwitchRow
-          label={_('Use agent runtime (experimental)')}
-          checked={reedyAgentRuntime}
-          disabled={!enabled || !reedyEnabled || !isTauriAppPlatform()}
-          onChange={() => {
-            const next = !reedyAgentRuntime;
-            setReedyAgentRuntime(next);
-            saveAiSetting('reedy', {
-              enabled: reedyEnabled,
-              runtime: next ? 'agent' : 'mvp',
-            });
-          }}
-        />
-        <div className='flex min-h-14 items-center justify-between gap-3 pe-4'>
-          <div className='flex min-w-0 flex-col gap-0.5'>
-            <SettingLabel>{_('Send Reedy feedback')}</SettingLabel>
-          </div>
-          <button
-            className='btn btn-outline btn-sm'
-            disabled={!enabled || !isTauriAppPlatform() || !appService}
-            onClick={async () => {
-              if (!appService) return;
-              try {
-                const bundle = await exportReedyMetricsBundle(appService);
-                const blob = new Blob([bundle], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `reedy-feedback-${new Date().toISOString().slice(0, 10)}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              } catch (err) {
-                console.error('[Reedy] feedback export failed', err);
-              }
+      {/* Reedy is unused on the unified desktop Antigravity path; keep for web experiments. */}
+      {!isTauriAppPlatform() && (
+        <BoxedList
+          title={_('Reedy Retrieval (Beta)')}
+          className={disabledSection}
+          description={_(
+            'Reedy is desktop-only in this beta. Use the Readest desktop app to try it.',
+          )}
+        >
+          <SettingsSwitchRow
+            label={_('Use Reedy retrieval')}
+            checked={reedyEnabled}
+            disabled={!enabled || !isTauriAppPlatform()}
+            onChange={() => {
+              const next = !reedyEnabled;
+              setReedyEnabled(next);
+              saveAiSetting('reedy', {
+                enabled: next,
+                runtime: reedyAgentRuntime ? 'agent' : 'mvp',
+              });
             }}
-          >
-            {_('Download')}
-          </button>
-        </div>
-      </BoxedList>
-
-      <BoxedList title={_('Connection')} className={disabledSection}>
-        <div className='flex min-h-14 items-center justify-between gap-3 pe-4'>
-          <button
-            className='btn btn-outline btn-sm'
-            onClick={handleTestConnection}
-            disabled={!enabled || connectionStatus === 'testing'}
-          >
-            {_('Test Connection')}
-          </button>
-          <div>
-            {connectionStatus === 'success' && (
-              <span className='text-success flex items-center gap-1 text-sm'>
-                <PiCheckCircle className='size-4 shrink-0' />
-                {_('Connected')}
-              </span>
-            )}
-            {connectionStatus === 'error' && (
-              <span className='text-error flex items-center gap-1 text-sm'>
-                <PiWarningCircle className='size-4 shrink-0' />
-                {errorMessage || _('Failed')}
-              </span>
-            )}
+          />
+          <SettingsSwitchRow
+            label={_('Use agent runtime (experimental)')}
+            checked={reedyAgentRuntime}
+            disabled={!enabled || !reedyEnabled || !isTauriAppPlatform()}
+            onChange={() => {
+              const next = !reedyAgentRuntime;
+              setReedyAgentRuntime(next);
+              saveAiSetting('reedy', {
+                enabled: reedyEnabled,
+                runtime: next ? 'agent' : 'mvp',
+              });
+            }}
+          />
+          <div className='flex min-h-14 items-center justify-between gap-3 pe-4'>
+            <div className='flex min-w-0 flex-col gap-0.5'>
+              <SettingLabel>{_('Send Reedy feedback')}</SettingLabel>
+            </div>
+            <button
+              className='btn btn-outline btn-sm'
+              disabled={!enabled || !isTauriAppPlatform() || !appService}
+              onClick={async () => {
+                if (!appService) return;
+                try {
+                  const bundle = await exportReedyMetricsBundle(appService);
+                  const blob = new Blob([bundle], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `reedy-feedback-${new Date().toISOString().slice(0, 10)}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  console.error('[Reedy] feedback export failed', err);
+                }
+              }}
+            >
+              {_('Download')}
+            </button>
           </div>
-        </div>
-      </BoxedList>
+        </BoxedList>
+      )}
+
+      {!isTauriAppPlatform() && (
+        <BoxedList title={_('Connection')} className={disabledSection}>
+          <div className='flex min-h-14 items-center justify-between gap-3 pe-4'>
+            <button
+              className='btn btn-outline btn-sm'
+              onClick={handleTestConnection}
+              disabled={!enabled || connectionStatus === 'testing'}
+            >
+              {_('Test Connection')}
+            </button>
+            <div>
+              {connectionStatus === 'success' && (
+                <span className='text-success flex items-center gap-1 text-sm'>
+                  <PiCheckCircle className='size-4 shrink-0' />
+                  {_('Connected')}
+                </span>
+              )}
+              {connectionStatus === 'error' && (
+                <span className='text-error flex items-center gap-1 text-sm'>
+                  <PiWarningCircle className='size-4 shrink-0' />
+                  {errorMessage || _('Failed')}
+                </span>
+              )}
+            </div>
+          </div>
+        </BoxedList>
+      )}
     </div>
   );
 };

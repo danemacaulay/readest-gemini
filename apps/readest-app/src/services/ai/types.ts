@@ -125,6 +125,8 @@ export interface AIConversation {
   title: string;
   createdAt: number;
   updatedAt: number;
+  /** Antigravity CLI conversation id for multi-turn `--conversation` resume. */
+  agyConversationId?: string;
 }
 
 // single message in an AI conversation

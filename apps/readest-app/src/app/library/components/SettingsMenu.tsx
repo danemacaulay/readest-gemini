@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
-import { PiUserCircle, PiUserCircleCheck, PiGear, PiChatCircleText } from 'react-icons/pi';
+import { PiUserCircle, PiUserCircleCheck, PiGear } from 'react-icons/pi';
 import { PiSun, PiMoon } from 'react-icons/pi';
 import { TbSunMoon } from 'react-icons/tb';
 import { MdCloudSync, MdSync, MdSyncProblem, MdOutlineSensors } from 'react-icons/md';
@@ -227,12 +227,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
     setSettingsDialogOpen(true);
   };
 
-  const handleOpenQuestions = () => {
-    document.documentElement.setAttribute('data-nav-direction', 'forward');
-    router.push('/library/questions');
-    setIsDropdownOpen?.(false);
-  };
-
   const handleSetSavedBookCoverForLockScreen = async () => {
     if (!(await requestStoragePermission())) return;
 
@@ -420,7 +414,6 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
         onClick={cycleThemeMode}
       />
       <MenuItem label={_('Settings')} Icon={PiGear} onClick={openSettingsDialog} />
-      <MenuItem label={_('Questions')} Icon={PiChatCircleText} onClick={handleOpenQuestions} />
       <hr aria-hidden='true' className='border-base-200 my-1' />
       <MenuItem label={_('Advanced Settings')}>
         <ul className='ms-0 flex flex-col ps-0 before:hidden'>

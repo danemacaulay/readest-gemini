@@ -42,5 +42,26 @@ describe('completeWithAntigravity', () => {
     expect(out.conversationId).toBe('c1');
     expect(seenArgs).toContain('--conversation');
     expect(seenArgs).toContain('c1');
+    expect(seenArgs).toContain('--sandbox');
+  });
+
+  it('omits --sandbox and adds --dangerously-skip-permissions when configured', async () => {
+    const { completeWithAntigravity } = await import('../../services/ai/ask/antigravityClient');
+    let seenArgs: string[] = [];
+    await completeWithAntigravity('Q', {
+      agyPath: 'agy',
+      sandbox: false,
+      skipPermissions: true,
+      runCommand: async (_cmd, args) => {
+        seenArgs = args;
+        return {
+          code: 0,
+          stdout: '{"event":"result","result":{"status":"SUCCESS","response":"OK"}}\n',
+          stderr: '',
+        };
+      },
+    });
+    expect(seenArgs).not.toContain('--sandbox');
+    expect(seenArgs).toContain('--dangerously-skip-permissions');
   });
 });

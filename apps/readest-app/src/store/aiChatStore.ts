@@ -15,6 +15,7 @@ interface AIChatState {
   addMessage: (message: Omit<AIMessage, 'id' | 'createdAt'>) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   renameConversation: (id: string, title: string) => Promise<void>;
+  setAgyConversationId: (id: string, agyConversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
 }
 
@@ -131,6 +132,15 @@ export const useAIChatStore = create<AIChatState>((set, get) => ({
       const conversations = await aiStore.getConversations(currentBookHash);
       set({ conversations });
     }
+  },
+
+  setAgyConversationId: async (id: string, agyConversationId: string) => {
+    await aiStore.updateAgyConversationId(id, agyConversationId);
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === id ? { ...c, agyConversationId, updatedAt: Date.now() } : c,
+      ),
+    }));
   },
 
   clearActiveConversation: () => {

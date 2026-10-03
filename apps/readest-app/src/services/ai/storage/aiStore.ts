@@ -421,6 +421,31 @@ class AIStore {
     });
   }
 
+  async updateAgyConversationId(id: string, agyConversationId: string): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CONVERSATIONS_STORE, 'readwrite');
+      const store = tx.objectStore(CONVERSATIONS_STORE);
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const conversation = req.result as AIConversation | undefined;
+        if (conversation) {
+          conversation.agyConversationId = agyConversationId;
+          conversation.updatedAt = Date.now();
+          store.put(conversation);
+        }
+      };
+      tx.oncomplete = () => {
+        this.conversationCache.clear();
+        resolve();
+      };
+      tx.onerror = () => {
+        aiLogger.store.error('updateAgyConversationId', tx.error?.message || 'TX error');
+        reject(tx.error);
+      };
+    });
+  }
+
   async saveMessage(message: AIMessage): Promise<void> {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
