@@ -52,7 +52,7 @@ describe('runAsk', () => {
     );
     expect(retrieve).toHaveBeenCalled();
     expect(result.grounded).toBe(true);
-    expect(result.sources[0].id).toBe('s1');
+    expect(result.sources[0]?.id).toBe('s1');
     expect(result.answer).toBe('Grounded');
   });
 });

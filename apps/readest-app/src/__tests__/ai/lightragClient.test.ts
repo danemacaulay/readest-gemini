@@ -20,7 +20,7 @@ describe('retrieveFromLightRAG', () => {
       mode: 'hybrid',
       fetchImpl,
     });
-    expect(result.sources[0].id).toBe('s1');
+    expect(result.sources[0]?.id).toBe('s1');
     expect(result.contextText).toBe('ctx');
   });
 

@@ -25,9 +25,9 @@ describe('historyStore', () => {
     });
     const hits = await store.searchThreads('virtue');
     expect(hits).toHaveLength(1);
-    expect(hits[0].bookTitle).toBe('Alpha');
+    expect(hits[0]?.bookTitle).toBe('Alpha');
     const all = await store.searchThreads('stoic');
-    expect(all[0].grounded).toBe(true);
+    expect(all[0]?.grounded).toBe(true);
   });
 
   it('searches case-insensitively over title, bookTitle, and message content', async () => {
@@ -126,7 +126,7 @@ describe('historyStore', () => {
 
     const recent = await store.listRecent(1);
     expect(recent).toHaveLength(1);
-    expect(recent[0].id).toBe(newer.id);
+    expect(recent[0]?.id).toBe(newer.id);
 
     await store.deleteThread(newer.id);
     expect(await store.getMessages(newer.id)).toEqual([]);

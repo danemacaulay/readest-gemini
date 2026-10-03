@@ -11,6 +11,7 @@ import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   createPersistentHistoryStore,
+  fileSystemFromAppService,
   type HistoryStore,
 } from '@/services/ai/history/historyStore';
 import type { QAMessage, QAThread } from '@/services/ai/history/types';
@@ -40,7 +41,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ resolveBookPresent, onOpenThr
   const getStore = useCallback((): HistoryStore | null => {
     if (!appService) return null;
     if (!storeRef.current) {
-      storeRef.current = createPersistentHistoryStore(appService.fs);
+      storeRef.current = createPersistentHistoryStore(fileSystemFromAppService(appService));
     }
     return storeRef.current;
   }, [appService]);

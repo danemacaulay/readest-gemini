@@ -109,11 +109,11 @@ describe('AskPanel selection args after restore', () => {
       expect(runAsk).toHaveBeenCalled();
     });
 
-    const input = runAsk.mock.calls[0]?.[0] as {
-      selectionText: string;
-      selectionCfi?: string;
-      question: string;
-    };
+    const calls = runAsk.mock.calls as unknown as Array<
+      [{ selectionText: string; selectionCfi?: string; question: string }]
+    >;
+    expect(calls.length).toBeGreaterThan(0);
+    const input = calls[0]![0];
     expect(input.selectionText).toBe('NEW HIGHLIGHT');
     expect(input.selectionCfi).toBe('epubcfi(/new)');
     expect(input.question).toBe('What does this mean?');

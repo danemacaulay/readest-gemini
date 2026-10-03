@@ -1,8 +1,17 @@
 import { uniqueId } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
-import type { FileSystem } from '@/types/system';
+import type { AppService, FileSystem } from '@/types/system';
 import type { LightRAGSource } from '../lightrag/types';
 import type { QAMessage, QAThread } from './types';
+
+/** AppService keeps `fs` on implementations but not on the public interface. */
+export function fileSystemFromAppService(appService: AppService): FileSystem {
+  const fs = (appService as unknown as { fs?: FileSystem }).fs;
+  if (!fs) {
+    throw new Error('AppService filesystem is unavailable');
+  }
+  return fs;
+}
 
 const HISTORY_FILE = 'ask-history.json';
 const HISTORY_BASE = 'Data' as const;

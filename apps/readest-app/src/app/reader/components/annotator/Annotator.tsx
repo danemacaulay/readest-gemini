@@ -107,7 +107,10 @@ import ImportAnnotationsDialog from './ImportAnnotationsDialog';
 import AskComposer from '@/components/ask/AskComposer';
 import AskPanel, { type AskPanelRestore } from '@/components/ask/AskPanel';
 import type { AskMode } from '@/services/ai/ask/types';
-import { createPersistentHistoryStore } from '@/services/ai/history/historyStore';
+import {
+  createPersistentHistoryStore,
+  fileSystemFromAppService,
+} from '@/services/ai/history/historyStore';
 import Alert from '@/components/Alert';
 import ModalPortal from '@/components/ModalPortal';
 import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
@@ -1888,7 +1891,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
 
     const restore = async () => {
       try {
-        const store = createPersistentHistoryStore(appService.fs);
+        const store = createPersistentHistoryStore(fileSystemFromAppService(appService));
         const [messages, thread] = await Promise.all([
           store.getMessages(threadId),
           store.getThread(threadId),

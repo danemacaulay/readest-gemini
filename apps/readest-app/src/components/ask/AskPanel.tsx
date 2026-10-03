@@ -16,6 +16,7 @@ import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import type { AskMode } from '@/services/ai/ask/types';
 import {
   createPersistentHistoryStore,
+  fileSystemFromAppService,
   type HistoryStore,
   type SaveTurnInput,
 } from '@/services/ai/history/historyStore';
@@ -132,7 +133,7 @@ const AskPanel: React.FC<AskPanelProps> = ({
   const getHistoryStore = (): HistoryStore | null => {
     if (!appService) return null;
     if (!historyStoreRef.current) {
-      historyStoreRef.current = createPersistentHistoryStore(appService.fs);
+      historyStoreRef.current = createPersistentHistoryStore(fileSystemFromAppService(appService));
     }
     return historyStoreRef.current;
   };
