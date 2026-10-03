@@ -1,3 +1,5 @@
+> **Soft-fork notice:** This repository is a macOS-focused soft-fork of [upstream Readest](https://github.com/readest/readest) (AGPL-3.0). The baseline remains Readest; planned work adds **Antigravity Ask** (`agy`) for highlight-based Q&A and optional grounding against an existing **LightRAG** (`lib-rag`) index, plus local searchable Q&A history. See [`docs/superpowers/specs/2026-10-03-readest-antigravity-lightrag-design.md`](docs/superpowers/specs/2026-10-03-readest-antigravity-lightrag-design.md) and [`docs/superpowers/plans/2026-10-03-readest-antigravity-lightrag.md`](docs/superpowers/plans/2026-10-03-readest-antigravity-lightrag.md). License obligations follow the upstream [AGPL-3.0](LICENSE).
+
 <div align="center">
   <a href="https://readest.com?utm_source=github&utm_medium=referral&utm_campaign=readme" target="_blank">
     <img src="https://github.com/readest/readest/blob/main/apps/readest-app/src-tauri/icons/icon.png?raw=true" alt="Readest Logo" width="20%" />
