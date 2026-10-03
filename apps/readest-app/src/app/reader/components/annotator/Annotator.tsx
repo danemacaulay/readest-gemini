@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { RiDeleteBinLine } from 'react-icons/ri';
 
 import * as CFI from 'foliate-js/epubcfi.js';
@@ -104,8 +105,9 @@ import { setProofreadRulesVisibility } from '@/app/reader/components/ProofreadRu
 import ExportMarkdownDialog from './ExportMarkdownDialog';
 import ImportAnnotationsDialog from './ImportAnnotationsDialog';
 import AskComposer from '@/components/ask/AskComposer';
-import AskPanel from '@/components/ask/AskPanel';
+import AskPanel, { type AskPanelRestore } from '@/components/ask/AskPanel';
 import type { AskMode } from '@/services/ai/ask/types';
+import { createPersistentHistoryStore } from '@/services/ai/history/historyStore';
 import Alert from '@/components/Alert';
 import ModalPortal from '@/components/ModalPortal';
 import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
@@ -136,6 +138,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   gridInsets = ZERO_INSETS,
 }) => {
   const _ = useTranslation();
+  const searchParams = useSearchParams();
   const { envConfig, appService } = useEnv();
   const { settings, setSettingsDialogBookKey, setSettingsDialogOpen, setActiveSettingsItemId } =
     useSettingsStore();
@@ -199,6 +202,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const [askSelectionCfi, setAskSelectionCfi] = useState<string | undefined>();
   const [askInitialQuestion, setAskInitialQuestion] = useState('');
   const [askThreadEpoch, setAskThreadEpoch] = useState(0);
+  const [askRestore, setAskRestore] = useState<AskPanelRestore | null>(null);
+  const askRestoreConsumedRef = useRef<string | null>(null);
   const [trianglePosition, setTrianglePosition] = useState<Position>();
   const [annotPopupPosition, setAnnotPopupPosition] = useState<Position>();
   // The side of the tapped word the footnote popup took, when one is open: a
@@ -256,16 +261,21 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // The lookup surfaces read the selection they were opened on, but it can be
   // cleared without the dismiss that closes them: the instant highlight quick
   // action clears it on a tap (#6419). Close them in the same render, before
-  // they can render without text.
+  // they can render without text. Restored Ask history threads have no live
+  // selection, so keep AskPanel open when askRestore is set.
   if (
     !selection &&
-    (showDictionaryPopup || showDeepLPopup || showProofreadPopup || showAskComposer || showAskPanel)
+    (showDictionaryPopup ||
+      showDeepLPopup ||
+      showProofreadPopup ||
+      showAskComposer ||
+      (showAskPanel && !askRestore))
   ) {
     setShowDictionaryPopup(false);
     setShowDeepLPopup(false);
     setShowProofreadPopup(false);
     setShowAskComposer(false);
-    setShowAskPanel(false);
+    if (!askRestore) setShowAskPanel(false);
   }
 
   const showingPopup =
@@ -1850,6 +1860,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     if (!selection || !selection.text) return;
     setShowAnnotPopup(false);
     void suppressNativeSelectionHandles();
+    setAskRestore(null);
     setAskMode(mode);
     setAskSelectionText(selection.text);
     setAskSelectionCfi(selection.cfi);
@@ -1864,6 +1875,72 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     setShowAskComposer(false);
     setShowAskPanel(true);
   };
+
+  // Global Questions history: ?threadId=… opens AskPanel with prior messages.
+  // CFI scroll is handled by FoliateViewer via ?cfi= (best-effort).
+  useEffect(() => {
+    const threadId = searchParams?.get('threadId');
+    if (!threadId || !appService) return;
+    if (askRestoreConsumedRef.current === threadId) return;
+
+    const bookHash = bookData.book?.hash || bookKey.split('-')[0] || '';
+    let cancelled = false;
+
+    const restore = async () => {
+      try {
+        const store = createPersistentHistoryStore(appService.fs);
+        const [messages, thread] = await Promise.all([
+          store.getMessages(threadId),
+          store.getThread(threadId),
+        ]);
+        if (cancelled) return;
+        if (!thread || thread.bookHash !== bookHash) return;
+
+        askRestoreConsumedRef.current = threadId;
+        const firstSelection = messages.find((m) => m.selectionText)?.selectionText;
+        setAskRestore({
+          threadId,
+          agyConversationId: thread.agyConversationId,
+          selectionText: firstSelection,
+          selectionCfi: thread.selectionCfi,
+          grounded: thread.grounded,
+          messages: messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            sources: m.sources,
+            grounded: m.role === 'assistant' ? !!m.sources?.length : undefined,
+          })),
+        });
+        setAskMode(thread.grounded ? 'ask-with-library' : 'ask');
+        setAskSelectionText(firstSelection || '');
+        setAskSelectionCfi(thread.selectionCfi);
+        setAskInitialQuestion('');
+        setAskThreadEpoch((n) => n + 1);
+        setShowAskComposer(false);
+        setShowAskPanel(true);
+
+        // Drop threadId from the URL so refresh doesn't re-open; keep cfi.
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('threadId')) {
+            url.searchParams.delete('threadId');
+            window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+          }
+        } catch {
+          // ignore URL rewrite failures
+        }
+      } catch (err) {
+        console.warn('Failed to restore Ask thread:', err);
+      }
+    };
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, appService, bookKey, bookData.book?.hash]);
 
   // `oneTime` is required rather than defaulted: it decides whether this reads
   // the selection and stops or starts an open-ended session from it, and every
@@ -2768,7 +2845,15 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       />
       <AskPanel
         open={showAskPanel}
-        onClose={handleDismissPopupShowToolbar}
+        onClose={() => {
+          const wasRestore = !!askRestore;
+          setAskRestore(null);
+          if (wasRestore) {
+            setShowAskPanel(false);
+          } else {
+            handleDismissPopupShowToolbar();
+          }
+        }}
         bookHash={bookData.book?.hash || bookKey.split('-')[0]!}
         bookTitle={bookData.book?.title || ''}
         selectionText={askSelectionText}
@@ -2776,6 +2861,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
         mode={askMode}
         initialQuestion={askInitialQuestion}
         threadEpoch={askThreadEpoch}
+        restore={askRestore}
       />
       {!editingAnnotation &&
         !overlaySurfaceOpen &&

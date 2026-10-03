@@ -32,7 +32,11 @@ export const useOpenBook = ({ setLoading, handleBookDownload }: UseOpenBookOptio
   const makeBookAvailable = useMakeBookAvailable({ setLoading, handleBookDownload });
 
   const openBook = useCallback(
-    async (book: Book, cfi?: string, options?: { highlightSearchResult?: boolean }) => {
+    async (
+      book: Book,
+      cfi?: string,
+      options?: { highlightSearchResult?: boolean; threadId?: string },
+    ) => {
       // A streaming audiobook has no local file and no document loader path -
       // it opens in the full-screen player instead of the reader. Short-circuit
       // before any of the file-availability logic below, which assumes a real
@@ -78,6 +82,7 @@ export const useOpenBook = ({ setLoading, handleBookDownload }: UseOpenBookOptio
       const params = new URLSearchParams();
       if (cfi) params.set('cfi', cfi);
       if (cfi && options?.highlightSearchResult) params.set('highlight', 'search');
+      if (options?.threadId) params.set('threadId', options.threadId);
       const queryParams = params.size ? params.toString() : undefined;
       if (appService?.hasWindow && settings.openBookInNewWindow) {
         showReaderWindow(appService, [book.hash], queryParams);

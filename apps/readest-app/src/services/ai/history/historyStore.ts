@@ -27,8 +27,10 @@ export type HistoryStore = {
   saveTurn(input: SaveTurnInput): Promise<QAThread>;
   searchThreads(query: string): Promise<QAThread[]>;
   listRecent(limit: number): Promise<QAThread[]>;
+  getThread(threadId: string): Promise<QAThread | undefined>;
   getMessages(threadId: string): Promise<QAMessage[]>;
   deleteThread(threadId: string): Promise<void>;
+  clearAll(): Promise<void>;
 };
 
 type HistorySnapshot = {
@@ -134,6 +136,10 @@ function createStoreFromState(
       return [...getState().threads].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, n);
     },
 
+    async getThread(threadId) {
+      return getState().threads.find((t) => t.id === threadId);
+    },
+
     async getMessages(threadId) {
       return getState()
         .messages.filter((m) => m.threadId === threadId)
@@ -146,6 +152,10 @@ function createStoreFromState(
         threads: state.threads.filter((t) => t.id !== threadId),
         messages: state.messages.filter((m) => m.threadId !== threadId),
       });
+    },
+
+    async clearAll() {
+      await setState(emptySnapshot());
     },
   };
 }
@@ -215,7 +225,9 @@ export function createPersistentHistoryStore(fs: FileSystem): HistoryStore {
     saveTurn: (input) => withLoad(() => inner.saveTurn(input)),
     searchThreads: (query) => withLoad(() => inner.searchThreads(query)),
     listRecent: (limit) => withLoad(() => inner.listRecent(limit)),
+    getThread: (threadId) => withLoad(() => inner.getThread(threadId)),
     getMessages: (threadId) => withLoad(() => inner.getMessages(threadId)),
     deleteThread: (threadId) => withLoad(() => inner.deleteThread(threadId)),
+    clearAll: () => withLoad(() => inner.clearAll()),
   };
 }

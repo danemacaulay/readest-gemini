@@ -31,6 +31,15 @@ export type AskPanelMessage = {
   offerAskWithoutLibrary?: boolean;
 };
 
+export type AskPanelRestore = {
+  threadId: string;
+  messages: AskPanelMessage[];
+  agyConversationId?: string;
+  selectionText?: string;
+  selectionCfi?: string;
+  grounded?: boolean;
+};
+
 export type AskPanelProps = {
   open: boolean;
   onClose: () => void;
@@ -44,6 +53,11 @@ export type AskPanelProps = {
   initialQuestion: string;
   /** Bumps whenever Annotator starts a fresh Ask from a new highlight. */
   threadEpoch: number;
+  /**
+   * When set (with a matching threadEpoch bump), load prior messages instead of
+   * running a new Ask — used by global Questions history jump-to-book.
+   */
+  restore?: AskPanelRestore | null;
 };
 
 function buildAskDeps(ai: {
@@ -80,6 +94,7 @@ const AskPanel: React.FC<AskPanelProps> = ({
   mode,
   initialQuestion,
   threadEpoch,
+  restore = null,
 }) => {
   const _ = useTranslation();
   const { appService } = useEnv();
@@ -92,6 +107,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
   const [activeMode, setActiveMode] = useState<AskMode>(mode);
   const [followUp, setFollowUp] = useState('');
   const [busy, setBusy] = useState(false);
+  const [displaySelectionText, setDisplaySelectionText] = useState(selectionText);
+  const [displaySelectionCfi, setDisplaySelectionCfi] = useState(selectionCfi);
   const listRef = useRef<HTMLDivElement>(null);
   const startedEpochRef = useRef<number | null>(null);
   const historyStoreRef = useRef<HistoryStore | null>(null);
@@ -164,8 +181,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
       void persistTurn({
         question: opts.question,
         answer: info.message,
-        selectionText,
-        selectionCfi,
+        selectionText: displaySelectionText,
+        selectionCfi: displaySelectionCfi,
         sources: [],
         grounded: false,
         isError: true,
@@ -190,8 +207,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
           mode: askMode,
           bookHash,
           bookTitle,
-          selectionText,
-          selectionCfi,
+          selectionText: displaySelectionText,
+          selectionCfi: displaySelectionCfi,
           question,
         },
         deps,
@@ -210,8 +227,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
       void persistTurn({
         question,
         answer: result.answer,
-        selectionText,
-        selectionCfi,
+        selectionText: displaySelectionText,
+        selectionCfi: displaySelectionCfi,
         sources: result.sources,
         grounded: result.grounded,
         agyConversationId: result.agyConversationId,
@@ -224,18 +241,35 @@ const AskPanel: React.FC<AskPanelProps> = ({
   };
 
   // New highlight Ask / Ask with library always starts a new thread.
+  // Restored history threads load prior messages without re-running Ask.
   useEffect(() => {
-    if (!open || !initialQuestion.trim()) return;
+    if (!open) return;
     if (startedEpochRef.current === threadEpoch) return;
     startedEpochRef.current = threadEpoch;
+    setFollowUp('');
+
+    if (restore?.threadId) {
+      setActiveMode(restore.grounded ? 'ask-with-library' : 'ask');
+      setDisplaySelectionText(restore.selectionText ?? '');
+      setDisplaySelectionCfi(restore.selectionCfi);
+      setAgyConversationId(restore.agyConversationId);
+      setActiveThreadId(restore.threadId);
+      activeThreadIdRef.current = restore.threadId;
+      setMessages(restore.messages);
+      setBusy(false);
+      return;
+    }
+
+    if (!initialQuestion.trim()) return;
+    setDisplaySelectionText(selectionText);
+    setDisplaySelectionCfi(selectionCfi);
     setAgyConversationId(undefined);
     setActiveThreadId(undefined);
     activeThreadIdRef.current = undefined;
-    setFollowUp('');
     setActiveMode(mode);
     void runInitialAsk(initialQuestion.trim(), mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, threadEpoch, initialQuestion, mode]);
+  }, [open, threadEpoch, initialQuestion, mode, restore]);
 
   const handleAskWithoutLibrary = (errorMessageId: string) => {
     const userMsg = [...messages].reverse().find((m) => m.role === 'user');
@@ -276,8 +310,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
           void persistTurn({
             question,
             answer: result.answer,
-            selectionText,
-            selectionCfi,
+            selectionText: displaySelectionText,
+            selectionCfi: displaySelectionCfi,
             sources: result.sources,
             grounded: result.grounded,
             agyConversationId: result.agyConversationId,
@@ -295,8 +329,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
               mode: 'ask',
               bookHash,
               bookTitle,
-              selectionText,
-              selectionCfi,
+              selectionText: displaySelectionText,
+              selectionCfi: displaySelectionCfi,
               question: rebuilt,
             },
             deps,
@@ -315,8 +349,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
           void persistTurn({
             question,
             answer: result.answer,
-            selectionText,
-            selectionCfi,
+            selectionText: displaySelectionText,
+            selectionCfi: displaySelectionCfi,
             sources: result.sources,
             grounded: false,
             agyConversationId: result.agyConversationId,
@@ -333,8 +367,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
           mode: activeMode === 'ask-with-library' ? 'ask' : activeMode,
           bookHash,
           bookTitle,
-          selectionText,
-          selectionCfi,
+          selectionText: displaySelectionText,
+          selectionCfi: displaySelectionCfi,
           question: rebuilt,
         },
         deps,
@@ -353,8 +387,8 @@ const AskPanel: React.FC<AskPanelProps> = ({
       void persistTurn({
         question,
         answer: result.answer,
-        selectionText,
-        selectionCfi,
+        selectionText: displaySelectionText,
+        selectionCfi: displaySelectionCfi,
         sources: result.sources,
         grounded: result.grounded,
         agyConversationId: result.agyConversationId,
@@ -380,11 +414,11 @@ const AskPanel: React.FC<AskPanelProps> = ({
       {open && (
         <div className='flex min-h-[20rem] flex-1 flex-col'>
           <div ref={listRef} className='flex-1 space-y-3 overflow-y-auto px-4 py-3'>
-            {selectionText ? (
+            {displaySelectionText ? (
               <blockquote className='border-base-content/20 border-l-2 pl-3 text-xs opacity-70'>
-                {selectionText.length > 200
-                  ? `${selectionText.slice(0, 200).trimEnd()}…`
-                  : selectionText}
+                {displaySelectionText.length > 200
+                  ? `${displaySelectionText.slice(0, 200).trimEnd()}…`
+                  : displaySelectionText}
               </blockquote>
             ) : null}
             {messages.map((m) => (

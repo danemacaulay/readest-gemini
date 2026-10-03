@@ -105,5 +105,10 @@ describe('historyStore', () => {
     await store.deleteThread(newer.id);
     expect(await store.getMessages(newer.id)).toEqual([]);
     expect(await store.listRecent(10).then((t) => t.map((x) => x.id))).toEqual([older.id]);
+
+    expect(await store.getThread(older.id)).toMatchObject({ id: older.id });
+    await store.clearAll();
+    expect(await store.listRecent(10)).toEqual([]);
+    expect(await store.getThread(older.id)).toBeUndefined();
   });
 });
