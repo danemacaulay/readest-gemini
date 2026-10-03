@@ -1,5 +1,34 @@
 > **Soft-fork notice:** This repository is a macOS-focused soft-fork of [upstream Readest](https://github.com/readest/readest) (AGPL-3.0). The baseline remains Readest; planned work adds **Antigravity Ask** (`agy`) for highlight-based Q&A and optional grounding against an existing **LightRAG** (`lib-rag`) index, plus local searchable Q&A history. See [`docs/superpowers/specs/2026-10-03-readest-antigravity-lightrag-design.md`](docs/superpowers/specs/2026-10-03-readest-antigravity-lightrag-design.md) and [`docs/superpowers/plans/2026-10-03-readest-antigravity-lightrag.md`](docs/superpowers/plans/2026-10-03-readest-antigravity-lightrag.md). License obligations follow the upstream [AGPL-3.0](LICENSE).
 
+### Soft-fork: local macOS build / run (no updater signing key)
+
+Day-to-day development (preferred; no `TAURI_SIGNING_PRIVATE_KEY` required):
+
+```bash
+# once per machine / after dependency changes
+git submodule update --init --recursive
+pnpm install
+pnpm --filter @readest/readest-app setup-vendors
+# ensure Rust is on PATH (rustup): source "$HOME/.cargo/env"
+pnpm tauri info   # should exit 0
+pnpm tauri dev    # interactive app; Ctrl+C to stop
+```
+
+Release-style `.app` bundle without updater signing (exits 0; upstream default `createUpdaterArtifacts` otherwise fails without `TAURI_SIGNING_PRIVATE_KEY`):
+
+```bash
+source "$HOME/.cargo/env"
+pnpm tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+# then open the produced Readest.app under $CARGO_TARGET_DIR/release/bundle/macos/
+# (or ./apps/readest-app/src-tauri/target/... if CARGO_TARGET_DIR is unset)
+```
+
+Smoke-open a sample EPUB against a built app:
+
+```bash
+open -a /path/to/Readest.app apps/readest-app/src/__tests__/fixtures/data/sample-alice.epub
+```
+
 <div align="center">
   <a href="https://readest.com?utm_source=github&utm_medium=referral&utm_campaign=readme" target="_blank">
     <img src="https://github.com/readest/readest/blob/main/apps/readest-app/src-tauri/icons/icon.png?raw=true" alt="Readest Logo" width="20%" />
