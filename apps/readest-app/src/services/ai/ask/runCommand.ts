@@ -1,7 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Command, type Child, type TerminatedPayload } from '@tauri-apps/plugin-shell';
 import type { RunCommand, RunCommandResult } from './antigravityClient';
-import { mergeCalibreToolPathEnv } from '../lightrag/shellScopes';
+import {
+  CALIBRE_RAG_SCOPE,
+  CALIBRE_RAG_VENV_SCOPE,
+  CALIBREDB_SCOPE,
+  mergeCalibreToolPathEnv,
+} from '../lightrag/shellScopes';
 import { mergeAgyPathEnv, resolveAgyShellScope } from './agyShell';
 
 export {
@@ -10,6 +15,12 @@ export {
   mergeAgyPathEnv,
   resolveAgyShellScope,
 } from './agyShell';
+
+const PRE_RESOLVED_SHELL_SCOPES = new Set([
+  CALIBREDB_SCOPE,
+  CALIBRE_RAG_SCOPE,
+  CALIBRE_RAG_VENV_SCOPE,
+]);
 
 async function buildAgySpawnEnv(): Promise<Record<string, string> | undefined> {
   try {
@@ -26,13 +37,16 @@ async function buildAgySpawnEnv(): Promise<Record<string, string> | undefined> {
 }
 
 /**
- * Run an allowlisted shell command, killing the child on timeout.
- * Prefers `spawn` + `kill` so timed-out `agy` processes do not keep running.
+ * Run an allowlisted shell command by capability `name`, killing the child on timeout.
+ * Does not remap through `resolveAgyShellScope` — pass a pre-resolved allowlist name.
  */
-export const tauriRunCommand: RunCommand = async (cmd, args, opts) => {
-  const program = resolveAgyShellScope(cmd);
+export async function tauriRunShellCommand(
+  scopeName: string,
+  args: string[],
+  opts: { timeoutMs: number },
+): Promise<RunCommandResult> {
   const env = await buildAgySpawnEnv();
-  const command = Command.create(program, args, env ? { env } : undefined);
+  const command = Command.create(scopeName, args, env ? { env } : undefined);
 
   let stdout = '';
   let stderr = '';
@@ -76,4 +90,14 @@ export const tauriRunCommand: RunCommand = async (cmd, args, opts) => {
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+/**
+ * Run an allowlisted shell command, killing the child on timeout.
+ * Prefers `spawn` + `kill` so timed-out `agy` processes do not keep running.
+ * Pre-resolved Calibre allowlist names are passed through unchanged.
+ */
+export const tauriRunCommand: RunCommand = async (cmd, args, opts) => {
+  const program = PRE_RESOLVED_SHELL_SCOPES.has(cmd) ? cmd : resolveAgyShellScope(cmd);
+  return tauriRunShellCommand(program, args, opts);
 };
