@@ -17,7 +17,7 @@
 - Library grounding: opt-in (**Ask** vs **Ask with library**)
 - Visuals: source chips in chat only (no graph viz)
 - Persistence: local global searchable history; no cloud sync
-- Antigravity v1: one-shot full-context prompts (`agy -p`), not `--conversation`
+- Antigravity v1: multi-turn via stored `conversation_id` + `agy -p --conversation <id>`; first turn creates the conversation; follow-ups resume it. Avoid global `--continue`.
 - Budgets: selection ≤ 4000 chars; library context ≤ 8000 chars; top 8 sources
 - lib-rag default base URL: `http://127.0.0.1:8765`
 
@@ -166,6 +166,7 @@ export type AskResult = {
   truncatedSelection: boolean;
   truncatedLibrary: boolean;
   grounded: boolean;
+  agyConversationId?: string;
 };
 ```
 
@@ -182,6 +183,7 @@ export type QAThread = {
   updatedAt: number;
   grounded: boolean;
   selectionCfi?: string;
+  agyConversationId?: string;
 };
 
 export type QAMessage = {
@@ -365,7 +367,7 @@ git commit -m "feat(ai): add Ask prompt builder with selection and library budge
 
 **Interfaces:**
 - Consumes: prompt string, options `{ agyPath: string; timeoutMs: number; runCommand?: typeof runCommand }`
-- Produces: `completeWithAntigravity(prompt, opts) => Promise<{ text: string }>`  
+- Produces: `completeWithAntigravity(prompt, opts) => Promise<{ text: string; conversationId?: string }>`  
   Errors: `AntigravityNotFoundError`, `AntigravityAuthError`, `AntigravityTimeoutError`, `AntigravityExitError`
 
 - [ ] **Step 1: Write failing parser tests**
@@ -376,15 +378,21 @@ import { extractAnswerFromAgyOutput } from '../../services/ai/ask/antigravityCli
 
 describe('extractAnswerFromAgyOutput', () => {
   it('returns plain text when output is not JSON', () => {
-    expect(extractAnswerFromAgyOutput('Hello reader')).toBe('Hello reader');
+    expect(extractAnswerFromAgyOutput('Hello reader')).toEqual({
+      text: 'Hello reader',
+      conversationId: undefined,
+    });
   });
 
-  it('extracts result text from stream-json final event lines', () => {
+  it('extracts response + conversation_id from stream-json result event', () => {
     const stdout = [
-      '{"type":"assistant","text":"partial"}',
-      '{"type":"result","result":"Final answer"}',
+      '{"event":"init","conversation_id":"c1"}',
+      '{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":"Final answer\\n"}}',
     ].join('\n');
-    expect(extractAnswerFromAgyOutput(stdout)).toBe('Final answer');
+    expect(extractAnswerFromAgyOutput(stdout)).toEqual({
+      text: 'Final answer',
+      conversationId: 'c1',
+    });
   });
 });
 ```
@@ -431,44 +439,62 @@ export type RunCommand = (
   opts: { timeoutMs: number },
 ) => Promise<RunCommandResult>;
 
-export function extractAnswerFromAgyOutput(stdout: string): string {
+export type AgyParsedOutput = { text: string; conversationId?: string };
+
+export function extractAnswerFromAgyOutput(stdout: string): AgyParsedOutput {
   const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  let lastResult: string | undefined;
+  let text: string | undefined;
+  let conversationId: string | undefined;
   let lastAssistant = '';
   for (const line of lines) {
     if (!line.startsWith('{')) continue;
     try {
-      const evt = JSON.parse(line) as { type?: string; result?: string; text?: string };
-      if (evt.type === 'result' && typeof evt.result === 'string') lastResult = evt.result;
-      if (evt.type === 'assistant' && typeof evt.text === 'string') lastAssistant = evt.text;
+      const evt = JSON.parse(line) as {
+        event?: string;
+        conversation_id?: string;
+        result?: { conversation_id?: string; response?: string; status?: string };
+        step_update?: { step_type?: string; text_delta?: string };
+      };
+      if (evt.conversation_id) conversationId = evt.conversation_id;
+      if (evt.event === 'result' && evt.result) {
+        if (evt.result.conversation_id) conversationId = evt.result.conversation_id;
+        if (typeof evt.result.response === 'string') text = evt.result.response.trim();
+      }
+      if (evt.step_update?.step_type === 'agent_response' && evt.step_update.text_delta) {
+        lastAssistant += evt.step_update.text_delta;
+      }
     } catch {
       // ignore non-JSON lines
     }
   }
-  if (lastResult) return lastResult.trim();
-  if (lastAssistant) return lastAssistant.trim();
-  return stdout.trim();
+  if (text) return { text, conversationId };
+  if (lastAssistant.trim()) return { text: lastAssistant.trim(), conversationId };
+  return { text: stdout.trim(), conversationId };
 }
 
 export async function completeWithAntigravity(
   prompt: string,
-  opts: { agyPath: string; timeoutMs?: number; runCommand: RunCommand },
-): Promise<{ text: string }> {
+  opts: {
+    agyPath: string;
+    timeoutMs?: number;
+    runCommand: RunCommand;
+    conversationId?: string;
+  },
+): Promise<AgyParsedOutput> {
   const timeoutMs = opts.timeoutMs ?? 5 * 60 * 1000;
+  const args = [
+    '-p',
+    prompt,
+    '--output-format',
+    'stream-json',
+    '--sandbox',
+  ];
+  if (opts.conversationId) {
+    args.push('--conversation', opts.conversationId);
+  }
   let result: RunCommandResult;
   try {
-    result = await opts.runCommand(
-      opts.agyPath,
-      [
-        '-p',
-        prompt,
-        '--output-format',
-        'stream-json',
-        '--sandbox',
-        // Prefer denying autonomous edits; adjust flags after probing `agy -p --help`
-      ],
-      { timeoutMs },
-    );
+    result = await opts.runCommand(opts.agyPath, args, { timeoutMs });
   } catch (e) {
     const msg = String(e);
     if (msg.includes('ENOENT') || msg.toLowerCase().includes('not found')) {
@@ -485,7 +511,7 @@ export async function completeWithAntigravity(
   if (result.code !== 0) {
     throw new AntigravityExitError(result.code, result.stderr || result.stdout);
   }
-  return { text: extractAnswerFromAgyOutput(result.stdout) };
+  return extractAnswerFromAgyOutput(result.stdout);
 }
 ```
 
@@ -494,17 +520,26 @@ Wire `runCommand` in a separate small file using Tauri `plugin-shell` `Command` 
 - [ ] **Step 4: Add runner-injection test**
 
 ```ts
-it('completeWithAntigravity returns parsed text via injected runner', async () => {
+it('completeWithAntigravity returns text + conversationId and passes --conversation', async () => {
   const { completeWithAntigravity } = await import('../../services/ai/ask/antigravityClient');
-  const out = await completeWithAntigravity('Q?', {
+  let seenArgs: string[] = [];
+  const out = await completeWithAntigravity('Follow up?', {
     agyPath: '/usr/local/bin/agy',
-    runCommand: async () => ({
-      code: 0,
-      stdout: '{"type":"result","result":"OK"}\n',
-      stderr: '',
-    }),
+    conversationId: 'c1',
+    runCommand: async (_cmd, args) => {
+      seenArgs = args;
+      return {
+        code: 0,
+        stdout:
+          '{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":"OK\\n"}}\n',
+        stderr: '',
+      };
+    },
   });
   expect(out.text).toBe('OK');
+  expect(out.conversationId).toBe('c1');
+  expect(seenArgs).toContain('--conversation');
+  expect(seenArgs).toContain('c1');
 });
 ```
 
@@ -823,18 +858,18 @@ git commit -m "feat(ai): add LightRAG HTTP retrieve client"
 
 **Interfaces:**
 - Consumes: `buildAskPrompt`, `completeWithAntigravity`, `retrieveFromLightRAG`, `HistoryStore` (inject save stub until Task 10)
-- Produces: `runAsk(request, deps) => AskResult`
+- Produces: `runAsk(request, deps) => AskResult`, `runFollowUp(args, deps) => AskResult`
 
 - [ ] **Step 1: Failing tests**
 
 ```ts
 import { describe, it, expect, vi } from 'vitest';
-import { runAsk } from '../../services/ai/ask/askService';
+import { runAsk, runFollowUp } from '../../services/ai/ask/askService';
 
 describe('runAsk', () => {
-  it('ask mode skips retrieve', async () => {
+  it('ask mode skips retrieve and returns conversation id', async () => {
     const retrieve = vi.fn();
-    const complete = vi.fn(async () => ({ text: 'A' }));
+    const complete = vi.fn(async () => ({ text: 'A', conversationId: 'c-new' }));
     const result = await runAsk(
       {
         mode: 'ask',
@@ -855,6 +890,7 @@ describe('runAsk', () => {
     expect(result.answer).toBe('A');
     expect(result.grounded).toBe(false);
     expect(result.sources).toEqual([]);
+    expect(result.agyConversationId).toBe('c-new');
   });
 
   it('ask-with-library retrieves then completes', async () => {
@@ -862,7 +898,7 @@ describe('runAsk', () => {
       sources: [{ id: 's1', title: 'T', snippet: 'S' }],
       contextText: 'ctx',
     }));
-    const complete = vi.fn(async () => ({ text: 'Grounded' }));
+    const complete = vi.fn(async () => ({ text: 'Grounded', conversationId: 'c2' }));
     const result = await runAsk(
       {
         mode: 'ask-with-library',
@@ -885,9 +921,34 @@ describe('runAsk', () => {
     expect(result.answer).toBe('Grounded');
   });
 });
+
+describe('runFollowUp', () => {
+  it('resumes conversation without retrieve or prompt rebuild of selection', async () => {
+    const retrieve = vi.fn();
+    const complete = vi.fn(async (_prompt, opts) => {
+      expect(opts.conversationId).toBe('c1');
+      return { text: 'More detail', conversationId: 'c1' };
+    });
+    const result = await runFollowUp(
+      { question: 'Say more', agyConversationId: 'c1' },
+      {
+        retrieve,
+        complete: complete as any,
+        agyPath: 'agy',
+        lightragBaseUrl: 'http://127.0.0.1:8765',
+        lightragMode: 'hybrid',
+      },
+    );
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(complete).toHaveBeenCalledWith('Say more', expect.objectContaining({ conversationId: 'c1' }));
+    expect(result.answer).toBe('More detail');
+    expect(result.agyConversationId).toBe('c1');
+    expect(result.grounded).toBe(false);
+  });
+});
 ```
 
-- [ ] **Step 2: Implement `runAsk`**
+- [ ] **Step 2: Implement `runAsk` + `runFollowUp`**
 
 ```ts
 // apps/readest-app/src/services/ai/ask/askService.ts
@@ -935,7 +996,7 @@ export async function runAsk(req: AskRequest, deps: AskDeps): Promise<AskResult>
     contextText,
   });
 
-  const { text } = await deps.complete(built.prompt, {
+  const { text, conversationId } = await deps.complete(built.prompt, {
     agyPath: deps.agyPath,
     runCommand: deps.runCommand!,
   });
@@ -946,6 +1007,26 @@ export async function runAsk(req: AskRequest, deps: AskDeps): Promise<AskResult>
     truncatedSelection: built.truncatedSelection,
     truncatedLibrary: built.truncatedLibrary,
     grounded,
+    agyConversationId: conversationId,
+  };
+}
+
+export async function runFollowUp(
+  req: { question: string; agyConversationId: string },
+  deps: AskDeps,
+): Promise<AskResult> {
+  const { text, conversationId } = await deps.complete(req.question, {
+    agyPath: deps.agyPath,
+    runCommand: deps.runCommand!,
+    conversationId: req.agyConversationId,
+  });
+  return {
+    answer: text,
+    sources: [],
+    truncatedSelection: false,
+    truncatedLibrary: false,
+    grounded: false,
+    agyConversationId: conversationId ?? req.agyConversationId,
   };
 }
 ```
@@ -1002,24 +1083,32 @@ In the selection popup, add:
 - **Ask** → open AskComposer with `mode: 'ask'`
 - **Ask with library** → open AskComposer with `mode: 'ask-with-library'`
 
-On submit, call `runAsk` with `tauriRunCommand` + `retrieveFromLightRAG`, render answer in `AskPanel`, show `SourceChips` when `grounded`.
+On submit, call `runAsk` with `tauriRunCommand` + `retrieveFromLightRAG`, render answer in `AskPanel`, show `SourceChips` when `grounded`, keep `agyConversationId` on the active thread.
+
+Add a follow-up composer in `AskPanel`:
+
+- If `agyConversationId` is set → `runFollowUp({ question, agyConversationId })`
+- Else → rebuild via `runAsk` fallback (should be rare)
+- New highlight **Ask** / **Ask with library** always starts a **new** thread (clears active conversation)
 
 Error mapping:
 
 - `AntigravityNotFoundError` / `Auth` / `Timeout` → error bubble with exact message
 - `LightRAGUnreachableError` → offer button “Ask without library”
+- Follow-up resume failure → toast + rebuild one-shot from stored messages, save new `agyConversationId`
 
 - [ ] **Step 3: Manual test on macOS**
 
 1. `agy` signed in  
 2. Open EPUB, highlight, Ask → answer appears  
-3. Stop lib-rag, Ask with library → unreachable + fallback  
-4. Start lib-rag, Ask with library → chips + answer  
+3. Send follow-up in the same panel → answer references prior turn  
+4. Stop lib-rag, Ask with library → unreachable + fallback  
+5. Start lib-rag, Ask with library → chips + answer  
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git commit -am "feat(ai): add selection Ask actions, panel, and source chips"
+git commit -am "feat(ai): add selection Ask actions, panel, source chips, and follow-ups"
 ```
 
 ---
@@ -1095,8 +1184,12 @@ await historyStore.saveTurn({
   selectionCfi,
   sources: result.sources,
   grounded: result.grounded,
+  agyConversationId: result.agyConversationId,
+  threadId: activeThreadId, // reuse on follow-ups; omit/create on new Ask
 });
 ```
+
+`saveTurn` must persist/update `QAThread.agyConversationId` so relaunched history entries can continue follow-ups when Antigravity still has that conversation.
 
 History write failures: `console.warn` + toast; do not fail the visible answer.
 
@@ -1166,9 +1259,10 @@ Expected: all PASS
 
 1. Open EPUB on macOS forked reader  
 2. Highlight → Ask → Antigravity answer  
-3. Highlight → Ask with library → chips + grounded answer  
-4. Quit/reopen → global search finds Q&A → jump to book/thread  
-5. `agy` missing / lib-rag down → actionable errors  
+3. Follow-up in same thread → contextual answer via `--conversation`  
+4. Highlight → Ask with library → chips + grounded answer  
+5. Quit/reopen → global search finds Q&A → jump to book/thread  
+6. `agy` missing / lib-rag down → actionable errors  
 
 - [ ] **Step 3: Final commit**
 
@@ -1184,6 +1278,7 @@ git commit -am "docs: record v1 Ask verification results"
 |---|---|
 | Soft-fork Readest macOS | Task 1 |
 | Highlight Ask via Antigravity | Tasks 4–5, 8–9 |
+| Follow-ups via `--conversation` | Tasks 4, 8–10 |
 | Opt-in Ask with library | Tasks 6–9 |
 | Source chips from retrieve | Tasks 6–7, 9 |
 | Global searchable history + jump-to-book | Tasks 10–11 |
@@ -1195,7 +1290,8 @@ git commit -am "docs: record v1 Ask verification results"
 ## Plan decisions (resolved from spec open items)
 
 - lib-rag route: **`POST /api/retrieve`** on viz server (port 8765)
-- Antigravity sessions: **one-shot** `-p` with full prompt (no `--conversation` in v1)
+- Antigravity sessions: **first turn** `-p` creates conversation; **follow-ups** use `--conversation <id>` on `QAThread`
 - Budgets: **4000 / 8000 / top 8**
 - History search: **substring includes** first; FTS later if needed
-- Antigravity integration: **dedicated AskService**, not a fake Vercel `LanguageModel` wrapper in v1
+- Antigravity integration: **dedicated AskService** (`runAsk` + `runFollowUp`), not a fake Vercel `LanguageModel` wrapper in v1
+- Follow-ups do **not** auto-query LightRAG; new grounding requires **Ask with library**

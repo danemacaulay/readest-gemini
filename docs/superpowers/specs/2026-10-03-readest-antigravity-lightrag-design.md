@@ -80,7 +80,9 @@ A macOS EPUB/PDF reader based on a soft-fork of Readest where the user can highl
 - Prefer headless: `agy -p "<prompt>" --output-format stream-json` (aliases `--print` / `--prompt`).
 - Use cached interactive login (user signs in once via `agy`); do not hang waiting for browser auth from the reader.
 - Lock down tool permissions / sandbox so Ask flows are answer-oriented and do not roam or edit the filesystem by default.
-- Multi-turn: use `--continue` / `--conversation` only if session continuity proves reliable; otherwise v1 may be one-shot per Ask with full prompt context.
+- **Multi-turn threads:** On the first turn, parse `conversation_id` from the final `result` event and store it on the `QAThread`. Follow-ups in that thread call `agy -p "<follow-up>" --conversation <id> --output-format stream-json` so Antigravity keeps prior context. A new highlight **Ask** / **Ask with library** starts a **new** conversation (new thread).
+- Do not use global `--continue` (most-recent-only); always bind resume to the thread’s stored id.
+- Optional later optimization: long-lived `--input-format stream-json` process for lower latency; not required for v1 correctness.
 
 ### LightRAG retrieve contract (v1)
 
@@ -127,6 +129,7 @@ type QAThread = {
   updatedAt: number;
   grounded: boolean;      // any turn used LightRAG
   selectionCfi?: string;  // best-effort anchor for jump-back
+  agyConversationId?: string; // Antigravity conversation for follow-ups
 };
 
 type QAMessage = {
@@ -154,16 +157,24 @@ type QAMessage = {
 2. PromptBuilder packs book metadata + selection (+ location/CFI) + question.
 3. AntigravityProvider runs headless `agy` and streams the reply into the chat panel.
 4. No source chips.
-5. HistoryStore writes/updates the thread + messages when the turn finishes.
+5. HistoryStore writes/updates the thread + messages when the turn finishes, including `agyConversationId` from the `result` event.
 
 ### Ask with library
 
 1. User highlights text → **Ask with library**.
 2. LightRAGClient queries `lib-rag` using question + selection.
 3. Ranked sources returned; PromptBuilder injects a capped “Library context” block and instructs the model to refer to source ids.
-4. Antigravity completes as in Ask.
+4. Antigravity completes as in Ask (new conversation).
 5. Chat shows source chips under the assistant turn (from the retrieve step).
-6. HistoryStore persists the turn including `sources` for later revisit.
+6. HistoryStore persists the turn including `sources` and `agyConversationId`.
+
+### Follow-up in an open thread
+
+1. User types a follow-up in the chat panel (no new highlight required).
+2. Reader calls `agy -p "<follow-up>" --conversation <thread.agyConversationId>` — no full PromptBuilder rebuild; Antigravity holds prior turns.
+3. LightRAG is **not** auto-queried on follow-ups. To ground again, user starts a new **Ask with library** (or a later explicit “ground this turn” action if added).
+4. If `agyConversationId` is missing or resume fails, fall back to one-shot with reconstructed prompt from stored messages and start a new conversation id.
+5. Append user + assistant messages to the same thread in HistoryStore.
 
 ### Preconditions
 
@@ -183,6 +194,7 @@ type QAMessage = {
 | Stream parse failure | Fall back to plain-text stdout if present; else error turn |
 | History write failure | Show non-blocking warning; do not fail the visible answer |
 | Book missing on jump-back | Open history entry in read-only transcript view; explain book file not found |
+| Follow-up `--conversation` resume fails | Rebuild one-shot from stored thread messages; save new `agyConversationId` |
 
 Never silently claim library grounding succeeded when retrieval failed.
 
@@ -190,7 +202,7 @@ Never silently claim library grounding succeeded when retrieval failed.
 
 - **Unit:** PromptBuilder packing/truncation; LightRAGClient → chip mapping; Antigravity `stream-json` / stdout parser; HistoryStore search/index helpers.
 - **Integration (local):** mocked `agy` binary + mocked lib-rag HTTP; both selection actions; persist → search → reopen thread.
-- **Manual (macOS):** real EPUB Ask; Ask with library against the live index; missing-auth and server-down paths; global history search and jump-to-book.
+- **Manual (macOS):** real EPUB Ask; follow-up in-thread; Ask with library against the live index; missing-auth and server-down paths; global history search and jump-to-book.
 - Live Antigravity credit calls are optional smoke tests, not CI-blocking.
 
 ## License and fork notes
@@ -203,14 +215,15 @@ Never silently claim library grounding succeeded when retrieval failed.
 
 1. Open an EPUB on macOS in the forked reader.
 2. Highlight a passage → **Ask** → receive an Antigravity answer in the chat panel.
-3. Highlight → **Ask with library** → see citation chips and an answer that used injected LightRAG context.
-4. Reopen the app later, find that Q&A via global search, and jump back to the book/thread.
-5. Clear, actionable errors when `agy` or `lib-rag` is unavailable.
+3. Ask a follow-up in the same thread → answer uses prior conversation context via `--conversation`.
+4. Highlight → **Ask with library** → see citation chips and an answer that used injected LightRAG context.
+5. Reopen the app later, find that Q&A via global search, and jump back to the book/thread.
+6. Clear, actionable errors when `agy` or `lib-rag` is unavailable.
 
 ## Open implementation details (resolve in plan, not product undecided)
 
 - Exact `lib-rag` HTTP route shape (new `/api/retrieve` vs extending viz server).
-- Whether Antigravity multi-turn uses `--conversation` in v1 or full-context one-shots.
 - Default token/char budgets for selection + library snippets.
 - Concrete storage backend (extend Readest AI conversation tables vs new HistoryStore schema).
 - Full-text search implementation (SQLite FTS vs in-memory filter for early v1).
+- Whether a long-lived `stream-json` stdin session is worth adding after `--conversation` works.
