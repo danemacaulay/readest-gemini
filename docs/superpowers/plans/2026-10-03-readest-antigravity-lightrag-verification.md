@@ -1,7 +1,8 @@
 # Verification notes — Readest Ask + Antigravity + LightRAG
 
 **Date:** 2026-10-03  
-**Branch:** `feat/ask-antigravity-lightrag`
+**Branch:** `feat/ask-antigravity-lightrag`  
+**Scope:** Automated test gates + lib-rag HTTP smoke only — **not** full macOS in-app E2E (manual checklist pending; see below).
 
 ## Automated
 

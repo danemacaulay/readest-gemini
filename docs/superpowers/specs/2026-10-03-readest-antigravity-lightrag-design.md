@@ -1,7 +1,7 @@
 # Design: Readest + Antigravity + LightRAG Reader
 
 **Date:** 2026-10-03  
-**Status:** Implemented (automated gates passed 2026-10-03; manual macOS success criteria still pending — see verification notes)  
+**Status:** Implemented (automated tests + lib-rag smoke; manual macOS Ask/follow-up/history checklist pending).  
 **Repo:** `reader` (greenfield; soft-fork of [Readest](https://github.com/readest/readest))
 
 ## Goal
