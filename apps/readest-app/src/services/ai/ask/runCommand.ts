@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Command, type Child, type TerminatedPayload } from '@tauri-apps/plugin-shell';
 import type { RunCommand, RunCommandResult } from './antigravityClient';
+import { mergeCalibreToolPathEnv } from '../lightrag/shellScopes';
 import { mergeAgyPathEnv, resolveAgyShellScope } from './agyShell';
 
 export {
@@ -17,7 +18,8 @@ async function buildAgySpawnEnv(): Promise<Record<string, string> | undefined> {
       invoke<string>('get_environment_variable', { name: 'PATH' }),
     ]);
     if (!home) return undefined;
-    return { PATH: mergeAgyPathEnv(home, pathVar || '') };
+    const pathWithAgy = mergeAgyPathEnv(home, pathVar || '');
+    return { PATH: mergeCalibreToolPathEnv(pathWithAgy) };
   } catch {
     return undefined;
   }

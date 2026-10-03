@@ -111,6 +111,15 @@ const AIPanel: React.FC = () => {
   const [lightragMode, setLightragMode] = useState<LightRAGMode>(
     aiSettings.lightragMode ?? DEFAULT_AI_SETTINGS.lightragMode,
   );
+  const [calibreLibraryPath, setCalibreLibraryPath] = useState(
+    aiSettings.calibreLibraryPath ?? DEFAULT_AI_SETTINGS.calibreLibraryPath,
+  );
+  const [calibredbPath, setCalibredbPath] = useState(
+    aiSettings.calibredbPath ?? DEFAULT_AI_SETTINGS.calibredbPath,
+  );
+  const [calibreRagCmd, setCalibreRagCmd] = useState(
+    aiSettings.calibreRagCmd ?? DEFAULT_AI_SETTINGS.calibreRagCmd,
+  );
   const [agyTestStatus, setAgyTestStatus] = useState<ConnectionStatus>('idle');
   const [agyTestMessage, setAgyTestMessage] = useState('');
 
@@ -326,6 +335,33 @@ const AIPanel: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightragMode]);
+
+  useEffect(() => {
+    if (!isMounted.current) return;
+    if (
+      calibreLibraryPath !==
+      (aiSettings.calibreLibraryPath ?? DEFAULT_AI_SETTINGS.calibreLibraryPath)
+    ) {
+      saveAiSetting('calibreLibraryPath', calibreLibraryPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calibreLibraryPath]);
+
+  useEffect(() => {
+    if (!isMounted.current) return;
+    if (calibredbPath !== (aiSettings.calibredbPath ?? DEFAULT_AI_SETTINGS.calibredbPath)) {
+      saveAiSetting('calibredbPath', calibredbPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calibredbPath]);
+
+  useEffect(() => {
+    if (!isMounted.current) return;
+    if (calibreRagCmd !== (aiSettings.calibreRagCmd ?? DEFAULT_AI_SETTINGS.calibreRagCmd)) {
+      saveAiSetting('calibreRagCmd', calibreRagCmd);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calibreRagCmd]);
 
   // Get the effective model ID to use (either selected or custom)
   const getEffectiveModelId = useCallback(() => {
@@ -846,6 +882,49 @@ const AIPanel: React.FC = () => {
               </option>
             ))}
           </select>
+        </div>
+        <div className='flex flex-col gap-2 py-3 pe-4'>
+          <SettingLabel>{_('Calibre library path')}</SettingLabel>
+          <input
+            type='text'
+            className='input input-sm w-full'
+            value={calibreLibraryPath}
+            onChange={(e) => setCalibreLibraryPath(e.target.value)}
+            placeholder='/path/to/calibre/library'
+          />
+          <span className='text-base-content/60 text-xs'>
+            {_('Folder passed to calibredb --with-library for LightRAG indexing.')}
+          </span>
+        </div>
+        <div className='flex flex-col gap-2 py-3 pe-4'>
+          <SettingLabel>{_('calibredb shell scope')}</SettingLabel>
+          <input
+            type='text'
+            className='input input-sm w-full'
+            value={calibredbPath}
+            onChange={(e) => setCalibredbPath(e.target.value)}
+            placeholder='/Applications/calibre.app/Contents/MacOS/calibredb'
+          />
+          <span className='text-base-content/60 text-xs'>
+            {_(
+              'Tauri shell allowlist name or path hint (default maps to calibredb). Absolute Calibre.app path resolves to the calibredb scope.',
+            )}
+          </span>
+        </div>
+        <div className='flex flex-col gap-2 py-3 pe-4'>
+          <SettingLabel>{_('calibre-rag command')}</SettingLabel>
+          <input
+            type='text'
+            className='input input-sm w-full'
+            value={calibreRagCmd}
+            onChange={(e) => setCalibreRagCmd(e.target.value)}
+            placeholder='/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag'
+          />
+          <span className='text-base-content/60 text-xs'>
+            {_(
+              'Tauri shell scope for lib-rag indexing CLI. Default calibre-rag uses PATH (venv + Calibre.app prepended at spawn). Set the venv absolute path for calibre-rag-venv.',
+            )}
+          </span>
         </div>
         {isTauriAppPlatform() && (
           <div className='flex min-h-14 items-center justify-between gap-3 pe-4'>

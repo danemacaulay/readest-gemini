@@ -38,6 +38,10 @@ export const DEFAULT_AI_SETTINGS: AISettings = {
   lightragBaseUrl: 'http://127.0.0.1:8765',
   lightragMode: 'hybrid',
 
+  calibreLibraryPath: '',
+  calibreRagCmd: 'calibre-rag',
+  calibredbPath: '/Applications/calibre.app/Contents/MacOS/calibredb',
+
   spoilerProtection: true,
   maxContextChunks: 10,
   indexingMode: 'on-demand',

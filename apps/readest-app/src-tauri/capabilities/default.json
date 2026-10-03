@@ -210,6 +210,21 @@
           "name": "agy-homebrew",
           "cmd": "/opt/homebrew/bin/agy",
           "args": true
+        },
+        {
+          "name": "calibredb",
+          "cmd": "/Applications/calibre.app/Contents/MacOS/calibredb",
+          "args": true
+        },
+        {
+          "name": "calibre-rag",
+          "cmd": "calibre-rag",
+          "args": true
+        },
+        {
+          "name": "calibre-rag-venv",
+          "cmd": "/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag",
+          "args": true
         }
       ]
     },
@@ -229,6 +244,21 @@
         {
           "name": "agy-homebrew",
           "cmd": "/opt/homebrew/bin/agy",
+          "args": true
+        },
+        {
+          "name": "calibredb",
+          "cmd": "/Applications/calibre.app/Contents/MacOS/calibredb",
+          "args": true
+        },
+        {
+          "name": "calibre-rag",
+          "cmd": "calibre-rag",
+          "args": true
+        },
+        {
+          "name": "calibre-rag-venv",
+          "cmd": "/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag",
           "args": true
         }
       ]
