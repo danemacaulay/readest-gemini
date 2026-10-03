@@ -24,6 +24,7 @@ import { LibraryCoverFitType, LibraryViewModeType } from '@/types/settings';
 import { navigateToLogin } from '@/utils/nav';
 import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
 import { isFeedBook } from '@/services/rss/feedBookUrl';
+import { isTauriAppPlatform } from '@/services/environment';
 import { parseCalibreBookId } from '@/services/ai/lightrag/calibrePath';
 import {
   badgeForBookId,
@@ -78,7 +79,7 @@ const BookItem: React.FC<BookItemProps> = ({
     setCoverAspect(null);
   }, [book.hash, book.metadata?.coverImageUrl, book.coverImageUrl]);
 
-  const calibreBookId = parseCalibreBookId(book.filePath);
+  const calibreBookId = isTauriAppPlatform() ? parseCalibreBookId(book.filePath) : null;
   const [lightRagBadge, setLightRagBadge] = useState<LightRAGIndexBadge | null>(() =>
     calibreBookId != null ? badgeForBookId(calibreBookId) : null,
   );
