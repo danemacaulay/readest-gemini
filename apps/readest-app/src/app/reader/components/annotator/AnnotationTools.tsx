@@ -4,7 +4,7 @@ import { FiCopy } from 'react-icons/fi';
 import { FiLink } from 'react-icons/fi';
 import { FiShare } from 'react-icons/fi';
 import { PiHighlighterFill } from 'react-icons/pi';
-import { LuBookA } from 'react-icons/lu';
+import { LuBookA, LuLibrary, LuMessageSquare } from 'react-icons/lu';
 import { BsPencilSquare } from 'react-icons/bs';
 import { BsTranslate } from 'react-icons/bs';
 import { FaHeadphones } from 'react-icons/fa6';
@@ -83,6 +83,18 @@ export const annotationToolButtons = createAnnotationToolButtons([
     tooltip: _('Translate text after selection'),
     Icon: BsTranslate,
     quickAction: true,
+  },
+  {
+    type: 'ask',
+    label: _('Ask'),
+    tooltip: _('Ask about the selected text'),
+    Icon: LuMessageSquare,
+  },
+  {
+    type: 'ask-with-library',
+    label: _('Ask with library'),
+    tooltip: _('Ask using your library knowledge index'),
+    Icon: LuLibrary,
   },
   {
     type: 'tts',

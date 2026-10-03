@@ -19,12 +19,14 @@ export const ALL_ANNOTATION_TOOL_TYPES: AnnotationToolType[] = [
   'search',
   'dictionary',
   'translate',
+  'ask',
+  'ask-with-library',
   'tts',
   'proofread',
   'share',
 ];
 
-// Default toolbar: the eight pre-existing tools in their original order.
+// Default toolbar: core selection tools plus Ask / Ask with library.
 // 'share' starts hidden in the Available tray per the #4014 design, and
 // 'copylink' is opt-in the same way (#5452) — a niche action most readers
 // never need, reachable by adding it in Customize Toolbar.
@@ -35,6 +37,8 @@ export const DEFAULT_ANNOTATION_TOOLBAR_ITEMS: AnnotationToolType[] = [
   'search',
   'dictionary',
   'translate',
+  'ask',
+  'ask-with-library',
   'tts',
   'proofread',
 ];

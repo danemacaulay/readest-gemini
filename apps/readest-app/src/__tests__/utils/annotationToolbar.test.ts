@@ -17,7 +17,7 @@ describe('annotationToolbar helpers', () => {
     expect(ALL_ANNOTATION_TOOL_TYPES).toEqual(annotationToolButtons.map((b) => b.type));
   });
 
-  test('default toolbar is the eight non-share tools in canonical order', () => {
+  test('default toolbar includes Ask tools and excludes share/copylink', () => {
     expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).toEqual([
       'copy',
       'highlight',
@@ -25,6 +25,8 @@ describe('annotationToolbar helpers', () => {
       'search',
       'dictionary',
       'translate',
+      'ask',
+      'ask-with-library',
       'tts',
       'proofread',
     ]);
@@ -63,6 +65,8 @@ describe('annotationToolbar helpers', () => {
       'search',
       'dictionary',
       'translate',
+      'ask',
+      'ask-with-library',
       'tts',
       'proofread',
       'share',

@@ -103,6 +103,9 @@ import ProofreadPopup from './ProofreadPopup';
 import { setProofreadRulesVisibility } from '@/app/reader/components/ProofreadRules';
 import ExportMarkdownDialog from './ExportMarkdownDialog';
 import ImportAnnotationsDialog from './ImportAnnotationsDialog';
+import AskComposer from '@/components/ask/AskComposer';
+import AskPanel from '@/components/ask/AskPanel';
+import type { AskMode } from '@/services/ai/ask/types';
 import Alert from '@/components/Alert';
 import ModalPortal from '@/components/ModalPortal';
 import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
@@ -189,6 +192,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const [showDictionaryPopup, setShowDictionaryPopup] = useState(false);
   const [showDeepLPopup, setShowDeepLPopup] = useState(false);
   const [showProofreadPopup, setShowProofreadPopup] = useState(false);
+  const [showAskComposer, setShowAskComposer] = useState(false);
+  const [showAskPanel, setShowAskPanel] = useState(false);
+  const [askMode, setAskMode] = useState<AskMode>('ask');
+  const [askSelectionText, setAskSelectionText] = useState('');
+  const [askSelectionCfi, setAskSelectionCfi] = useState<string | undefined>();
+  const [askInitialQuestion, setAskInitialQuestion] = useState('');
+  const [askThreadEpoch, setAskThreadEpoch] = useState(0);
   const [trianglePosition, setTrianglePosition] = useState<Position>();
   const [annotPopupPosition, setAnnotPopupPosition] = useState<Position>();
   // The side of the tapped word the footnote popup took, when one is open: a
@@ -1812,6 +1822,26 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     setShowDeepLPopup(true);
   };
 
+  // New highlight Ask always starts a new Antigravity conversation thread.
+  const handleAsk = (mode: AskMode) => {
+    if (!selection || !selection.text) return;
+    setShowAnnotPopup(false);
+    void suppressNativeSelectionHandles();
+    setAskMode(mode);
+    setAskSelectionText(selection.text);
+    setAskSelectionCfi(selection.cfi);
+    setAskInitialQuestion('');
+    setAskThreadEpoch((n) => n + 1);
+    setShowAskPanel(false);
+    setShowAskComposer(true);
+  };
+
+  const handleAskComposerSubmit = (question: string) => {
+    setAskInitialQuestion(question);
+    setShowAskComposer(false);
+    setShowAskPanel(true);
+  };
+
   // `oneTime` is required rather than defaulted: it decides whether this reads
   // the selection and stops or starts an open-ended session from it, and every
   // entry point here means the former. Defaulting it silently turned Ctrl/Cmd+R
@@ -2495,6 +2525,18 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
         return { tooltipText: _(label), Icon, onClick: handleDictionary };
       case 'translate':
         return { tooltipText: _(label), Icon, onClick: handleTranslation };
+      case 'ask':
+        return {
+          tooltipText: _(label),
+          Icon,
+          onClick: () => handleAsk('ask'),
+        };
+      case 'ask-with-library':
+        return {
+          tooltipText: _(label),
+          Icon,
+          onClick: () => handleAsk('ask-with-library'),
+        };
       case 'tts':
         return {
           tooltipText: _(label),
@@ -2562,7 +2604,12 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // toolbar: hide them while any of those is open, and let them come back with
   // the toolbar (or go with the dismiss).
   const overlaySurfaceOpen =
-    showDictionaryPopup || showDeepLPopup || showProofreadPopup || !!noteEditorTarget;
+    showDictionaryPopup ||
+    showDeepLPopup ||
+    showProofreadPopup ||
+    showAskComposer ||
+    showAskPanel ||
+    !!noteEditorTarget;
 
   // Below `sm` (or short landscape) the note editor is a bottom sheet rather
   // than a popup pinned to the selection: an anchored editor would sit under
@@ -2688,6 +2735,25 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           }}
         />
       )}
+      <AskComposer
+        open={showAskComposer}
+        mode={askMode}
+        selectionText={askSelectionText}
+        bookTitle={bookData.book?.title || ''}
+        onClose={() => setShowAskComposer(false)}
+        onSubmit={handleAskComposerSubmit}
+      />
+      <AskPanel
+        open={showAskPanel}
+        onClose={() => setShowAskPanel(false)}
+        bookHash={bookData.book?.hash || bookKey.split('-')[0]!}
+        bookTitle={bookData.book?.title || ''}
+        selectionText={askSelectionText}
+        selectionCfi={askSelectionCfi}
+        mode={askMode}
+        initialQuestion={askInitialQuestion}
+        threadEpoch={askThreadEpoch}
+      />
       {!editingAnnotation &&
         !overlaySurfaceOpen &&
         selection?.handlesSuppressed &&
