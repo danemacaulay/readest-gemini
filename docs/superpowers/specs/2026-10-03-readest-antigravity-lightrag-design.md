@@ -6,7 +6,7 @@
 
 ## Goal
 
-A macOS EPUB/PDF reader based on a soft-fork of Readest where the user can highlight text and ask questions. Answers come from **Antigravity CLI** (`agy`) using the user’s Google / AI credits subscription. Optionally, the user can ground a question in their existing **`lib-rag` LightRAG** index; retrieved sources appear as citation chips and are injected into the model prompt.
+A macOS EPUB/PDF reader based on a soft-fork of Readest where the user can highlight text and ask questions. Answers come from **Antigravity CLI** (`agy`) using the user’s Google / AI credits subscription. Optionally, the user can ground a question in their existing **`lib-rag` LightRAG** index; retrieved sources appear as citation chips and are injected into the model prompt. Past questions and answers persist locally in a **global, searchable history** so the user can revisit them and jump back to the source book.
 
 ## Non-goals (v1)
 
@@ -14,7 +14,7 @@ A macOS EPUB/PDF reader based on a soft-fork of Readest where the user can highl
 - Rich LightRAG graph visualization in the reader
 - Web, Windows, Linux, or mobile targets
 - Replacing or removing Readest’s upstream AI providers for all users (Antigravity is the default happy path)
-- Cross-device sync of AI conversations
+- Cross-device / cloud sync of AI conversations (local persistence only)
 - Always-on library grounding (library use is opt-in)
 
 ## Constraints and decisions
@@ -27,6 +27,7 @@ A macOS EPUB/PDF reader based on a soft-fork of Readest where the user can highl
 | Retrieval | Existing `lib-rag` LightRAG index only |
 | Library grounding | Opt-in: **Ask** vs **Ask with library** |
 | Visual indicators | Minimal: source chips/citations in the chat panel |
+| Q&A persistence | Local global history, searchable across books, with jump-to-book |
 | Integration style | In-app adapters (no separate bridge daemon) |
 
 ## Architecture
@@ -71,6 +72,8 @@ A macOS EPUB/PDF reader based on a soft-fork of Readest where the user can highl
 | LightRAGClient | `retrieve(query, selection?)` → structured sources | `lib-rag` HTTP |
 | lib-rag query API | FastAPI route wrapping existing retrieval / `query_rag` path; returns citeable chunks/entities | Existing index + config |
 | Settings | `agy` binary path, lib-rag base URL, LightRAG mode (default `hybrid`), grounding toggle defaults | Local prefs |
+| HistoryStore | Persist threads/messages locally; global search; open book + restore thread | Tauri/app local DB or Readest storage layer |
+| History UI | Global “Questions” / history view: search, filter by book, open entry | HistoryStore, reader navigation |
 
 ### Antigravity invocation (v1)
 
@@ -101,6 +104,48 @@ type LightRAGRetrieveResult = {
 
 Chips are rendered from `sources` produced by retrieval, not from model-invented citations.
 
+## Persistence (Q&A history)
+
+### Product behavior
+
+- Every **Ask** / **Ask with library** turn is saved locally when the assistant reply completes (or when an error turn is finalized).
+- History is **global across books**, not siloed to the open book only.
+- A dedicated history view lists recent threads with title/snippet, book, timestamp, and whether library grounding was used.
+- **Search** matches question text, answer text, and book title.
+- Opening a history entry **jumps to the book** (and passage when CFI/location is available) and restores that thread in the chat panel.
+- While reading a book, the chat panel can still show the active thread for that book; global history is the cross-library index.
+
+### Data model (v1)
+
+```ts
+type QAThread = {
+  id: string;
+  bookHash: string;
+  bookTitle: string;
+  title: string;          // derived from first question
+  createdAt: number;
+  updatedAt: number;
+  grounded: boolean;      // any turn used LightRAG
+  selectionCfi?: string;  // best-effort anchor for jump-back
+};
+
+type QAMessage = {
+  id: string;
+  threadId: string;
+  role: 'user' | 'assistant' | 'error';
+  content: string;
+  createdAt: number;
+  selectionText?: string;
+  sources?: LightRAGSource[];  // chips for grounded turns
+};
+```
+
+### Storage
+
+- Local-only on macOS (SQLite or whatever persistence Readest already uses for AI conversations — prefer extending upstream types over a parallel store).
+- No cloud sync in v1.
+- Deleting a thread removes its messages; clearing history is explicit and confirm-gated.
+
 ## Data flow
 
 ### Ask (selection only)
@@ -109,6 +154,7 @@ Chips are rendered from `sources` produced by retrieval, not from model-invented
 2. PromptBuilder packs book metadata + selection (+ location/CFI) + question.
 3. AntigravityProvider runs headless `agy` and streams the reply into the chat panel.
 4. No source chips.
+5. HistoryStore writes/updates the thread + messages when the turn finishes.
 
 ### Ask with library
 
@@ -117,6 +163,7 @@ Chips are rendered from `sources` produced by retrieval, not from model-invented
 3. Ranked sources returned; PromptBuilder injects a capped “Library context” block and instructs the model to refer to source ids.
 4. Antigravity completes as in Ask.
 5. Chat shows source chips under the assistant turn (from the retrieve step).
+6. HistoryStore persists the turn including `sources` for later revisit.
 
 ### Preconditions
 
@@ -134,14 +181,16 @@ Chips are rendered from `sources` produced by retrieval, not from model-invented
 | Zero LightRAG hits | Still call Antigravity; chips show “No library sources”; prompt notes empty context |
 | Oversized selection / context | Truncate with visible notice; keep selection + top-k sources under budget |
 | Stream parse failure | Fall back to plain-text stdout if present; else error turn |
+| History write failure | Show non-blocking warning; do not fail the visible answer |
+| Book missing on jump-back | Open history entry in read-only transcript view; explain book file not found |
 
 Never silently claim library grounding succeeded when retrieval failed.
 
 ## Testing
 
-- **Unit:** PromptBuilder packing/truncation; LightRAGClient → chip mapping; Antigravity `stream-json` / stdout parser.
-- **Integration (local):** mocked `agy` binary + mocked lib-rag HTTP; both selection actions.
-- **Manual (macOS):** real EPUB Ask; Ask with library against the live index; missing-auth and server-down paths.
+- **Unit:** PromptBuilder packing/truncation; LightRAGClient → chip mapping; Antigravity `stream-json` / stdout parser; HistoryStore search/index helpers.
+- **Integration (local):** mocked `agy` binary + mocked lib-rag HTTP; both selection actions; persist → search → reopen thread.
+- **Manual (macOS):** real EPUB Ask; Ask with library against the live index; missing-auth and server-down paths; global history search and jump-to-book.
 - Live Antigravity credit calls are optional smoke tests, not CI-blocking.
 
 ## License and fork notes
@@ -155,10 +204,13 @@ Never silently claim library grounding succeeded when retrieval failed.
 1. Open an EPUB on macOS in the forked reader.
 2. Highlight a passage → **Ask** → receive an Antigravity answer in the chat panel.
 3. Highlight → **Ask with library** → see citation chips and an answer that used injected LightRAG context.
-4. Clear, actionable errors when `agy` or `lib-rag` is unavailable.
+4. Reopen the app later, find that Q&A via global search, and jump back to the book/thread.
+5. Clear, actionable errors when `agy` or `lib-rag` is unavailable.
 
 ## Open implementation details (resolve in plan, not product undecided)
 
 - Exact `lib-rag` HTTP route shape (new `/api/retrieve` vs extending viz server).
 - Whether Antigravity multi-turn uses `--conversation` in v1 or full-context one-shots.
 - Default token/char budgets for selection + library snippets.
+- Concrete storage backend (extend Readest AI conversation tables vs new HistoryStore schema).
+- Full-text search implementation (SQLite FTS vs in-memory filter for early v1).
