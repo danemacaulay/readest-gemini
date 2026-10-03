@@ -1,0 +1,14 @@
+diff --git a/dist/legacy-runtime/runtime-cores/remote-thread-list/RemoteThreadListHookInstanceManager.js b/dist/legacy-runtime/runtime-cores/remote-thread-list/RemoteThreadListHookInstanceManager.js
+index ed6746709955e59997f79709526c2f3c4aa243dd..70d3021a2d02af048af370f12ebcfe8b2e4dfb42 100644
+--- a/dist/legacy-runtime/runtime-cores/remote-thread-list/RemoteThreadListHookInstanceManager.js
++++ b/dist/legacy-runtime/runtime-cores/remote-thread-list/RemoteThreadListHookInstanceManager.js
+@@ -79,7 +79,8 @@ export class RemoteThreadListHookInstanceManager extends BaseSubscribable {
+             const runtimeCore = threadBinding.getState();
+             const setGetInitializePromise = runtimeCore["__internal_setGetInitializePromise"];
+             if (typeof setGetInitializePromise === "function") {
+-                setGetInitializePromise(() => initPromiseRef.current);
++                // Bind this — unbound call crashes WKWebView/Safari (assistant-ui#3168 / #3698).
++                setGetInitializePromise.call(runtimeCore, () => initPromiseRef.current);
+             }
+         }, [threadBinding]);
+         useEffect(() => {
