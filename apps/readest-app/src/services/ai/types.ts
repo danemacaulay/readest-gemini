@@ -38,8 +38,10 @@ export interface AISettings {
   openrouterEmbeddingModel?: string;
 
   /**
-   * Shell scope name / binary for Antigravity CLI (`Command.create` name).
-   * Must match a Tauri shell capability entry (default `agy` on PATH).
+   * Tauri shell capability name for Antigravity CLI (default `agy`).
+   * Not a filesystem path — `Command.create` uses this allowlist `name`.
+   * The runner prepends `~/.local/bin` (and common brew paths) to PATH so
+   * user-local installs resolve when the GUI app PATH is minimal.
    */
   agyPath: string;
   /** Base URL for the local lib-rag LightRAG HTTP server. */

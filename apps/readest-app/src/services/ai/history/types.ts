@@ -20,4 +20,6 @@ export type QAMessage = {
   createdAt: number;
   selectionText?: string;
   sources?: LightRAGSource[];
+  /** True when this assistant turn used LightRAG (may have empty sources). */
+  grounded?: boolean;
 };

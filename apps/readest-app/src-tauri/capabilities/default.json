@@ -200,6 +200,16 @@
           "name": "agy",
           "cmd": "agy",
           "args": true
+        },
+        {
+          "name": "agy-usr-local",
+          "cmd": "/usr/local/bin/agy",
+          "args": true
+        },
+        {
+          "name": "agy-homebrew",
+          "cmd": "/opt/homebrew/bin/agy",
+          "args": true
         }
       ]
     },
@@ -209,6 +219,16 @@
         {
           "name": "agy",
           "cmd": "agy",
+          "args": true
+        },
+        {
+          "name": "agy-usr-local",
+          "cmd": "/usr/local/bin/agy",
+          "args": true
+        },
+        {
+          "name": "agy-homebrew",
+          "cmd": "/opt/homebrew/bin/agy",
           "args": true
         }
       ]

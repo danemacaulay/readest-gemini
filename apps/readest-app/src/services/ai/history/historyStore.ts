@@ -110,6 +110,7 @@ function createStoreFromState(
         content: input.answer,
         createdAt: nextStamp(),
         sources: input.isError ? undefined : input.sources,
+        grounded: input.isError ? undefined : input.grounded,
       };
       state.messages = [...state.messages, userMsg, replyMsg];
       await setState(state);

@@ -25,7 +25,7 @@ Note: bare `pnpm exec vitest run src/__tests__/ai` fails 2 suites (`providers`, 
 
 ### Environment notes
 
-- **`agy`:** Not on default PATH (`which agy` → not found). Binary exists at `~/.local/bin/agy` and `--help` works. App settings should point at that path or PATH must include `~/.local/bin`.
+- **`agy`:** Not on default PATH (`which agy` → not found). Binary exists at `~/.local/bin/agy` and `--help` works. Settings leave shell scope as `agy`; `tauriRunCommand` prepends `~/.local/bin` (and brew paths) to PATH so Test agy / Ask can resolve user-local installs.
 - **lib-rag:** Was down at start. Started with `make viz` (`127.0.0.1:8765`). `POST /api/retrieve` with `{"query":"power","mode":"hybrid"}` returned **HTTP 200** (~2+ min cold start while index loads). Server stopped after smoke.
 
 ## Remaining gaps

@@ -1909,7 +1909,8 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
             role: m.role,
             content: m.content,
             sources: m.sources,
-            grounded: m.role === 'assistant' ? !!m.sources?.length : undefined,
+            // Persist grounded on the message so empty source lists still restore chips.
+            grounded: m.role === 'assistant' ? (m.grounded ?? !!m.sources?.length) : undefined,
           })),
         });
         setAskMode(thread.grounded ? 'ask-with-library' : 'ask');

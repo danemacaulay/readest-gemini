@@ -79,6 +79,32 @@ describe('historyStore', () => {
     expect(messages.map((m) => m.content)).toEqual(['Q1', 'A1', 'Q2', 'A2']);
   });
 
+  it('persists grounded on assistant messages even when sources are empty', async () => {
+    const store = createMemoryHistoryStore();
+    const thread = await store.saveTurn({
+      bookHash: 'a',
+      bookTitle: 'Alpha',
+      question: 'Q',
+      answer: 'A',
+      grounded: true,
+      sources: [],
+    });
+    await store.saveTurn({
+      bookHash: 'a',
+      bookTitle: 'Alpha',
+      question: 'Follow?',
+      answer: 'More',
+      grounded: false,
+      sources: [],
+      threadId: thread.id,
+    });
+    const messages = await store.getMessages(thread.id);
+    const assistants = messages.filter((m) => m.role === 'assistant');
+    expect(assistants[0]?.grounded).toBe(true);
+    expect(assistants[0]?.sources).toEqual([]);
+    expect(assistants[1]?.grounded).toBe(false);
+  });
+
   it('lists recent threads and deletes them', async () => {
     const store = createMemoryHistoryStore();
     const older = await store.saveTurn({

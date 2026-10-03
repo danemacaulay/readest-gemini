@@ -809,7 +809,7 @@ const AIPanel: React.FC = () => {
         )}
       >
         <div className='flex flex-col gap-2 py-3 pe-4'>
-          <SettingLabel>{_('agy Path')}</SettingLabel>
+          <SettingLabel>{_('agy shell scope')}</SettingLabel>
           <input
             type='text'
             className='input input-sm w-full'
@@ -819,7 +819,7 @@ const AIPanel: React.FC = () => {
           />
           <span className='text-base-content/60 text-xs'>
             {_(
-              'Shell command name for Tauri (default: agy on PATH). Must match the desktop allowlist.',
+              'Tauri shell allowlist name (default: agy). Leave as agy — the app inherits PATH and also searches ~/.local/bin, Homebrew, and /usr/local/bin. Not a filesystem path field.',
             )}
           </span>
         </div>

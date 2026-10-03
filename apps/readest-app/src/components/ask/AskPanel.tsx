@@ -84,6 +84,16 @@ export function rebuildFollowUpQuestion(messages: AskPanelMessage[], followUp: s
   return `${prior}\n\nUser follow-up: ${followUp}`;
 }
 
+export function formatTruncationNotice(
+  flags: { truncatedSelection?: boolean; truncatedLibrary?: boolean },
+  t: (s: string) => string,
+): string | null {
+  const parts: string[] = [];
+  if (flags.truncatedSelection) parts.push(t('Selection truncated for context length'));
+  if (flags.truncatedLibrary) parts.push(t('Library context truncated for length'));
+  return parts.length ? parts.join(' · ') : null;
+}
+
 const AskPanel: React.FC<AskPanelProps> = ({
   open,
   onClose,
@@ -107,6 +117,7 @@ const AskPanel: React.FC<AskPanelProps> = ({
   const [activeMode, setActiveMode] = useState<AskMode>(mode);
   const [followUp, setFollowUp] = useState('');
   const [busy, setBusy] = useState(false);
+  const [truncationNotice, setTruncationNotice] = useState<string | null>(null);
   const [displaySelectionText, setDisplaySelectionText] = useState(selectionText);
   const [displaySelectionCfi, setDisplaySelectionCfi] = useState(selectionCfi);
   const listRef = useRef<HTMLDivElement>(null);
@@ -224,6 +235,15 @@ const AskPanel: React.FC<AskPanelProps> = ({
         deps,
       );
       setAgyConversationId(result.agyConversationId);
+      setTruncationNotice(
+        formatTruncationNotice(
+          {
+            truncatedSelection: result.truncatedSelection,
+            truncatedLibrary: result.truncatedLibrary,
+          },
+          _,
+        ),
+      );
       setMessages((prev) => [
         ...prev,
         {
@@ -266,6 +286,7 @@ const AskPanel: React.FC<AskPanelProps> = ({
       setActiveThreadId(restore.threadId);
       activeThreadIdRef.current = restore.threadId;
       setMessages(restore.messages);
+      setTruncationNotice(null);
       setBusy(false);
       return;
     }
@@ -276,6 +297,7 @@ const AskPanel: React.FC<AskPanelProps> = ({
     setAgyConversationId(undefined);
     setActiveThreadId(undefined);
     activeThreadIdRef.current = undefined;
+    setTruncationNotice(null);
     setActiveMode(mode);
     // Pass selection as locals — displaySelection* state is still the prior
     // restore values until the next render.
@@ -435,6 +457,11 @@ const AskPanel: React.FC<AskPanelProps> = ({
                   ? `${displaySelectionText.slice(0, 200).trimEnd()}…`
                   : displaySelectionText}
               </blockquote>
+            ) : null}
+            {truncationNotice ? (
+              <p className='text-warning text-xs' role='status'>
+                {truncationNotice}
+              </p>
             ) : null}
             {messages.map((m) => (
               <div
