@@ -322,4 +322,41 @@ describe('EchoesPanel', () => {
     expect(h.removeBookNoteOverlays.mock.calls[0]?.[1]).not.toHaveProperty('deletedAt');
     expect(h.saveBooknoteNoteText).not.toHaveBeenCalled();
   });
+
+  test('on failure, clears pendingSeed so remount does not re-fire runEchoes', async () => {
+    h.runEchoes.mockRejectedValue(new Error('retrieve failed'));
+
+    const { unmount } = render(<EchoesPanel bookKey={BOOK_KEY} />);
+
+    await act(async () => {
+      useEchoesUiStore.getState().requestEchoesRun({
+        bookHash: 'bookhash',
+        bookTitle: 'Meditations',
+        seedText: 'passage',
+        annotationId: 'anno-new',
+        annotationIsNew: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(h.runEchoes).toHaveBeenCalledTimes(1);
+      expect(useEchoesUiStore.getState().pendingSeed).toBeNull();
+      expect(useEchoesUiStore.getState().error).toBe('retrieve failed');
+    });
+
+    const runTokenAfterFail = useEchoesUiStore.getState().runToken;
+    unmount();
+
+    render(<EchoesPanel bookKey={BOOK_KEY} />);
+
+    // Store still has the same runToken; pendingSeed must stay cleared so the
+    // effect does not treat this as a new run request.
+    expect(useEchoesUiStore.getState().runToken).toBe(runTokenAfterFail);
+    expect(useEchoesUiStore.getState().pendingSeed).toBeNull();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(h.runEchoes).toHaveBeenCalledTimes(1);
+  });
 });

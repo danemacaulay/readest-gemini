@@ -164,6 +164,8 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
         if (controller.signal.aborted) return;
         const message = e instanceof Error ? e.message : String(e);
         setError(message);
+        // Clear so a remount (same runToken) does not re-fire runEchoes.
+        setPendingSeed(null);
         eventDispatcher.dispatch('toast', {
           type: 'error',
           message: _('Could not find Echoes'),
