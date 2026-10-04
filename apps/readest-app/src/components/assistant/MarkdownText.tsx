@@ -27,6 +27,9 @@ const MarkdownTextImpl = () => {
 
 export const MarkdownText = memo(MarkdownTextImpl);
 
+/** Chat bubbles use text-sm; keep line-height compact (not leading-7 / base-size). */
+export const markdownParagraphClassName = 'mb-3 leading-5 first:mt-0 last:mb-0';
+
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();
   const onCopy = () => {
@@ -89,7 +92,7 @@ const defaultComponents = memoizeMarkdownComponents({
     />
   ),
   p: ({ className, ...props }) => (
-    <p className={cn('mb-3 leading-7 first:mt-0 last:mb-0', className)} {...props} />
+    <p className={cn(markdownParagraphClassName, className)} {...props} />
   ),
   a: ({ className, ...props }) => (
     // eslint-disable-next-line jsx-a11y/anchor-has-content
