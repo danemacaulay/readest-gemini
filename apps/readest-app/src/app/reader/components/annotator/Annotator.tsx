@@ -1781,7 +1781,11 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
 
     // Create the highlight while selection is still live, then dismiss UI
     // immediately so the agy wait does not leave the selection chrome up.
+    // Track only newly created ids (like Annotate's placeholderIds) so a
+    // failed Ask can take back an empty placeholder without deleting a
+    // highlight the user already had at this CFI.
     const created = handleHighlight(true);
+    const askPlaceholderIds = created.map((annotation) => annotation.id);
     const target =
       created[0] ??
       getConfig(bookKey)?.booknotes?.find(
@@ -1803,7 +1807,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     void (async () => {
       try {
         const ai = settings.aiSettings ?? DEFAULT_AI_SETTINGS;
-        await runAskForNote(
+        const ok = await runAskForNote(
           {
             bookHash,
             bookTitle,
@@ -1823,6 +1827,9 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
             t: _,
           },
         );
+        if (!ok) {
+          removeNotePlaceholders(askPlaceholderIds);
+        }
       } finally {
         askInFlightRef.current = false;
       }

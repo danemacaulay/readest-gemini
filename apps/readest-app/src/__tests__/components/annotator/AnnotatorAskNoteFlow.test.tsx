@@ -405,4 +405,44 @@ describe('Annotator Ask → note', () => {
       resolveAsk(true);
     });
   });
+
+  test('removes newly created empty highlight when Ask fails', async () => {
+    h.runAskForNote.mockResolvedValue(false);
+
+    await openAskComposer();
+    await act(async () => {
+      screen.getByText('stub-ask-submit').click();
+    });
+
+    expect(h.runAskForNote).toHaveBeenCalledTimes(1);
+    const annotations = h.config.booknotes.filter((n) => n.type === 'annotation');
+    expect(annotations.length).toBeGreaterThan(0);
+    expect(annotations.every((n) => n.deletedAt)).toBe(true);
+  });
+
+  test('does not remove pre-existing highlight when Ask fails', async () => {
+    const preexisting: BookNote = {
+      id: 'preexisting-hl',
+      type: 'annotation',
+      cfi: 'epubcfi(/6/2!/4/2)',
+      style: 'highlight',
+      color: 'yellow',
+      text: 'selected text',
+      note: '',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    h.config.booknotes = [preexisting];
+    h.runAskForNote.mockResolvedValue(false);
+
+    await openAskComposer();
+    await act(async () => {
+      screen.getByText('stub-ask-submit').click();
+    });
+
+    expect(h.runAskForNote).toHaveBeenCalledTimes(1);
+    const kept = h.config.booknotes.find((n) => n.id === 'preexisting-hl');
+    expect(kept).toBeTruthy();
+    expect(kept?.deletedAt).toBeUndefined();
+  });
 });
