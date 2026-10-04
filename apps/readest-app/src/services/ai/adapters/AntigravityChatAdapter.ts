@@ -124,6 +124,7 @@ export function createAntigravityChatAdapter(
           agyPath: settings.agyPath || 'agy',
           runCommand,
           conversationId: agyConversationId || undefined,
+          abortSignal,
           sandbox: true,
           skipPermissions: true,
         });

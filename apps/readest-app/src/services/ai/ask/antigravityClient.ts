@@ -24,10 +24,11 @@ export class AntigravityExitError extends Error {
 }
 
 export type RunCommandResult = { code: number; stdout: string; stderr: string };
+export type RunCommandOpts = { timeoutMs: number; signal?: AbortSignal };
 export type RunCommand = (
   cmd: string,
   args: string[],
-  opts: { timeoutMs: number },
+  opts: RunCommandOpts,
 ) => Promise<RunCommandResult>;
 
 export type AgyParsedOutput = { text: string; conversationId?: string };
@@ -73,6 +74,8 @@ export async function completeWithAntigravity(
     timeoutMs?: number;
     runCommand: RunCommand;
     conversationId?: string;
+    /** When aborted, RunCommand should kill the agy child process. */
+    abortSignal?: AbortSignal;
     /**
      * When true (default), pass `--sandbox` for terminal restrictions.
      * Notebook chat sets false so agy can HTTP-retrieve from local LightRAG.
@@ -92,7 +95,10 @@ export async function completeWithAntigravity(
   }
   let result: RunCommandResult;
   try {
-    result = await opts.runCommand(opts.agyPath, args, { timeoutMs });
+    result = await opts.runCommand(opts.agyPath, args, {
+      timeoutMs,
+      signal: opts.abortSignal,
+    });
   } catch (e) {
     const msg = String(e);
     if (msg.includes('ENOENT') || msg.toLowerCase().includes('not found')) {

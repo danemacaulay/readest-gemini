@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Command, type Child, type TerminatedPayload } from '@tauri-apps/plugin-shell';
-import type { RunCommand, RunCommandResult } from './antigravityClient';
+import type { RunCommand, RunCommandOpts, RunCommandResult } from './antigravityClient';
 import {
   CALIBRE_RAG_SCOPE,
   CALIBRE_RAG_VENV_SCOPE,
@@ -22,6 +22,12 @@ const PRE_RESOLVED_SHELL_SCOPES = new Set([
   CALIBRE_RAG_VENV_SCOPE,
 ]);
 
+function abortError(): Error {
+  const err = new Error('Aborted');
+  err.name = 'AbortError';
+  return err;
+}
+
 async function buildAgySpawnEnv(): Promise<Record<string, string> | undefined> {
   try {
     const [home, pathVar] = await Promise.all([
@@ -37,14 +43,16 @@ async function buildAgySpawnEnv(): Promise<Record<string, string> | undefined> {
 }
 
 /**
- * Run an allowlisted shell command by capability `name`, killing the child on timeout.
+ * Run an allowlisted shell command by capability `name`, killing the child on timeout or abort.
  * Does not remap through `resolveAgyShellScope` — pass a pre-resolved allowlist name.
  */
 export async function tauriRunShellCommand(
   scopeName: string,
   args: string[],
-  opts: { timeoutMs: number },
+  opts: RunCommandOpts,
 ): Promise<RunCommandResult> {
+  if (opts.signal?.aborted) throw abortError();
+
   const env = await buildAgySpawnEnv();
   const command = Command.create(scopeName, args, env ? { env } : undefined);
 
@@ -59,7 +67,14 @@ export async function tauriRunShellCommand(
 
   let child: Child | undefined;
   let timedOut = false;
+  let aborted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const onAbort = () => {
+    aborted = true;
+    void child?.kill().catch(() => undefined);
+  };
+  opts.signal?.addEventListener('abort', onAbort);
 
   try {
     const closed = new Promise<TerminatedPayload>((resolve, reject) => {
@@ -68,12 +83,19 @@ export async function tauriRunShellCommand(
     });
 
     child = await command.spawn();
+    if (aborted || opts.signal?.aborted) {
+      aborted = true;
+      void child.kill().catch(() => undefined);
+      throw abortError();
+    }
+
     timer = setTimeout(() => {
       timedOut = true;
       void child?.kill().catch(() => undefined);
     }, opts.timeoutMs);
 
     const payload = await closed;
+    if (aborted || opts.signal?.aborted) throw abortError();
     if (timedOut) throw new Error('timeout');
 
     return {
@@ -82,12 +104,14 @@ export async function tauriRunShellCommand(
       stderr,
     } satisfies RunCommandResult;
   } catch (err) {
+    if (aborted || opts.signal?.aborted) throw abortError();
     if (timedOut) throw new Error('timeout');
     if (child) {
       void child.kill().catch(() => undefined);
     }
     throw err;
   } finally {
+    opts.signal?.removeEventListener('abort', onAbort);
     if (timer) clearTimeout(timer);
   }
 }

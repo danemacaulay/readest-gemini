@@ -64,4 +64,23 @@ describe('completeWithAntigravity', () => {
     expect(seenArgs).not.toContain('--sandbox');
     expect(seenArgs).toContain('--dangerously-skip-permissions');
   });
+
+  it('forwards abortSignal to runCommand opts', async () => {
+    const { completeWithAntigravity } = await import('../../services/ai/ask/antigravityClient');
+    const controller = new AbortController();
+    let seenSignal: AbortSignal | undefined;
+    await completeWithAntigravity('Q', {
+      agyPath: 'agy',
+      abortSignal: controller.signal,
+      runCommand: async (_cmd, _args, opts) => {
+        seenSignal = opts.signal;
+        return {
+          code: 0,
+          stdout: '{"event":"result","result":{"status":"SUCCESS","response":"OK"}}\n',
+          stderr: '',
+        };
+      },
+    });
+    expect(seenSignal).toBe(controller.signal);
+  });
 });
