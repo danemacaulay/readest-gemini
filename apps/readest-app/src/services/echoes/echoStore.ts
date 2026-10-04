@@ -24,7 +24,13 @@ export type EchoStore = {
   get(id: string): Promise<EchoTrail | undefined>;
   upsert(input: EchoTrailInput): Promise<EchoTrail>;
   delete(id: string): Promise<void>;
-  promote(id: string): Promise<{ trail: EchoTrail; note: BookNote }>;
+  /**
+   * Soft-retired promote path.
+   * - When `noteId` is already set (native annotation trail): ensure `status: 'promoted'`
+   *   without creating a stub; `note` is null.
+   * - When `noteId` is missing (legacy): create a stub BookNote as before.
+   */
+  promote(id: string): Promise<{ trail: EchoTrail; note: BookNote | null }>;
 };
 
 const emptySnapshot = (): EchoesSnapshot => ({ trails: [] });
@@ -114,7 +120,25 @@ function createStoreFromState(
       }
 
       const now = nextStamp();
-      const noteId = existing.noteId ?? uniqueId();
+
+      // Native annotation trails already have noteId — status ensure only.
+      if (existing.noteId) {
+        if (existing.status === 'promoted') {
+          return { trail: existing, note: null };
+        }
+        const trail: EchoTrail = {
+          ...existing,
+          status: 'promoted',
+          updatedAt: now,
+        };
+        await setState({
+          trails: state.trails.map((t) => (t.id === trail.id ? trail : t)),
+        });
+        return { trail, note: null };
+      }
+
+      // Legacy: no noteId yet — create stub BookNote.
+      const noteId = uniqueId();
       const trail: EchoTrail = {
         ...existing,
         status: 'promoted',

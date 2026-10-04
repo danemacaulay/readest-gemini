@@ -6,7 +6,7 @@ interface EchoesUiState {
   pendingSeed: EchoTrailSeed | null;
   isRunning: boolean;
   error: string | null;
-  /** Bumps when a new Find Echoes / composer run is requested. */
+  /** Bumps when a new Find Echoes run is requested. */
   runToken: number;
 
   setActiveEchoId: (id: string | null) => void;

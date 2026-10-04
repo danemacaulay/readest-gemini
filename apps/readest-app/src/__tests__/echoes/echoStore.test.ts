@@ -123,7 +123,7 @@ describe('echoStore', () => {
     expect(await store.get(trail.id)).toEqual(trail);
   });
 
-  it('promotes draft → stub BookNote and persists noteId', async () => {
+  it('promotes draft without noteId → stub BookNote and persists noteId', async () => {
     const store = createMemoryEchoStore();
     const draft = await store.upsert(draftInput());
     expect(draft.status).toBe('draft');
@@ -132,16 +132,33 @@ describe('echoStore', () => {
     const { trail, note } = await store.promote(draft.id);
     expect(trail.status).toBe('promoted');
     expect(trail.noteId).toBeTruthy();
-    expect(note.type).toBe('echo');
-    expect(note.id).toBe(trail.noteId);
-    expect(note.cfi).toBe(draft.seed.cfi);
-    expect(note.text).toBe(draft.seed.seedText);
-    expect(note.note).toBe(`echo:${draft.id}`);
-    expect(note.bookHash).toBe(draft.seed.bookHash);
+    expect(note).not.toBeNull();
+    expect(note!.type).toBe('echo');
+    expect(note!.id).toBe(trail.noteId);
+    expect(note!.cfi).toBe(draft.seed.cfi);
+    expect(note!.text).toBe(draft.seed.seedText);
+    expect(note!.note).toBe(`echo:${draft.id}`);
+    expect(note!.bookHash).toBe(draft.seed.bookHash);
 
     const again = await store.get(draft.id);
     expect(again?.status).toBe('promoted');
-    expect(again?.noteId).toBe(note.id);
+    expect(again?.noteId).toBe(note!.id);
+  });
+
+  it('promote with existing noteId is status-only (no stub)', async () => {
+    const store = createMemoryEchoStore();
+    const draft = await store.upsert(draftInput({ noteId: 'anno-native-1', status: 'draft' }));
+    expect(draft.noteId).toBe('anno-native-1');
+
+    const { trail, note } = await store.promote(draft.id);
+    expect(trail.status).toBe('promoted');
+    expect(trail.noteId).toBe('anno-native-1');
+    expect(note).toBeNull();
+
+    const again = await store.promote(draft.id);
+    expect(again.trail.status).toBe('promoted');
+    expect(again.trail.noteId).toBe('anno-native-1');
+    expect(again.note).toBeNull();
   });
 
   it('updates via upsert and deletes', async () => {

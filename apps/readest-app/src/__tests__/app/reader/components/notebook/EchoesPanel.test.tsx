@@ -249,6 +249,8 @@ describe('EchoesPanel', () => {
     expect(screen.getByRole('button', { name: 'Continue in chat' })).toBeTruthy();
 
     expect(screen.queryByText('Seed')).toBeNull();
+    expect(screen.queryByText('Draft')).toBeNull();
+    expect(screen.queryByText('Saved trail')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save trail' })).toBeNull();
     expect(screen.queryByPlaceholderText('Ask across your library…')).toBeNull();

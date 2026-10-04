@@ -292,12 +292,6 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
 
       {trail && (
         <div className='eink-bordered border-base-300 bg-base-100 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-lg border p-3'>
-          <div className='flex items-center justify-between gap-2'>
-            <span className='text-xs font-medium uppercase tracking-wide opacity-70'>
-              {trail.status === 'promoted' ? _('Saved trail') : _('Draft')}
-            </span>
-          </div>
-
           <section aria-labelledby='echoes-synthesis-heading'>
             <h2 id='echoes-synthesis-heading' className='mb-1 text-xs font-medium opacity-70'>
               {_('Comparative take')}
