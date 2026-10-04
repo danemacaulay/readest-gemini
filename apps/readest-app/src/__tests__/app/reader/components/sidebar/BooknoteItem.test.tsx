@@ -16,10 +16,12 @@ const mocks = vi.hoisted(() => {
   const state = { booknotes: [] as { note: string; deletedAt?: number | null }[] };
   return {
     state,
+    trails: [] as { id: string; noteId?: string; seed?: { annotationId?: string } }[],
     appService: { isMobile: false, isIOSApp: false },
     setNotebookVisible: vi.fn(),
     setNotebookActiveTab: vi.fn(),
     setNotebookEditAnnotation: vi.fn(),
+    setActiveEchoId: vi.fn(),
     toast: vi.fn(),
     addAnnotation: vi.fn(),
     saveConfig: vi.fn(),
@@ -81,6 +83,7 @@ vi.mock('@/services/echoes/echoStore', () => ({
   getPersistentEchoStore: () => ({
     delete: mocks.deleteEchoTrail,
     get: async () => ({ id: 'trail-1' }),
+    list: async () => mocks.trails,
   }),
 }));
 
@@ -102,7 +105,7 @@ vi.mock('@/store/echoesUiStore', () => ({
   useEchoesUiStore: Object.assign(() => ({}), {
     getState: () => ({
       activeEchoId: null,
-      setActiveEchoId: vi.fn(),
+      setActiveEchoId: mocks.setActiveEchoId,
     }),
   }),
 }));
@@ -134,6 +137,7 @@ const renderItem = (item: BookNote, inlineNoteEditing?: boolean) =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.state.booknotes = [];
+  mocks.trails = [];
   mocks.appService.isIOSApp = false;
 });
 
@@ -229,6 +233,42 @@ describe('BooknoteItem', () => {
     await vi.waitFor(() => {
       expect(mocks.deleteEchoTrail).toHaveBeenCalledWith(expect.anything(), 'trail-1');
     });
+  });
+
+  it('opens Notebook Echoes for an annotation linked by trail.noteId', async () => {
+    const annotation = makeItem({
+      id: 'anno-linked',
+      type: 'annotation',
+      text: 'seed quote',
+      note: 'comparative take',
+    });
+    mocks.trails = [{ id: 'trail-linked', noteId: 'anno-linked' }];
+    const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
+    renderItem(annotation);
+    await act(async () => {});
+
+    fireEvent.click(screen.getByText('seed quote'));
+    expect(mocks.setActiveEchoId).toHaveBeenCalledWith('trail-linked');
+    expect(mocks.setNotebookVisible).toHaveBeenCalledWith(true);
+    expect(mocks.setNotebookActiveTab).toHaveBeenCalledWith('echoes');
+    expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
+  });
+
+  it('cascades delete of an annotation-linked note into the echo trail store', async () => {
+    const annotation = makeItem({
+      id: 'anno-linked',
+      type: 'annotation',
+      text: 'seed quote',
+      note: 'comparative take',
+    });
+    mocks.state.booknotes = [annotation];
+    mocks.trails = [{ id: 'trail-linked', noteId: 'anno-linked' }];
+    renderItem(annotation);
+    await act(async () => {});
+
+    fireEvent.click(screen.getByLabelText('Delete'));
+    expect(mocks.updateBooknotes).toHaveBeenCalled();
+    expect(mocks.deleteEchoTrail).toHaveBeenCalledWith(expect.anything(), 'trail-linked');
   });
 
   it('shows Add Note on a bare highlight and saves a new note inline', async () => {

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MdEdit, MdDelete, MdContentCopy } from 'react-icons/md';
 
 import { useEnv } from '@/context/EnvContext';
@@ -51,7 +51,8 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const { settings } = useSettingsStore();
   const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
-  const { setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
+  const { setNotebookEditAnnotation, setNotebookVisible, setNotebookActiveTab } =
+    useNotebookStore();
 
   const globalReadSettings = settings.globalReadSettings;
   const customColors = globalReadSettings.customHighlightColors;
@@ -60,8 +61,51 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const isBookmark = item.type === 'bookmark';
   // Prefer explicit type; also treat echo: refs as echoes so a mistyped stub
   // never falls through to navigate/goTo (which feels like a duplicate open).
+  // Native annotation-linked trails are NOT stubs — they render as normal notes.
   const isEcho = item.type === 'echo' || !!parseEchoNoteRef(item.note ?? '');
+  const [linkedTrailId, setLinkedTrailId] = useState<string | null>(null);
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
+
+  useEffect(() => {
+    if (isEcho || item.type !== 'annotation' || !appService) {
+      setLinkedTrailId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const store = getPersistentEchoStore(fileSystemFromAppService(appService));
+        const trails = await store.list();
+        const linked = trails.find((t) => t.noteId === item.id || t.seed.annotationId === item.id);
+        if (!cancelled) setLinkedTrailId(linked?.id ?? null);
+      } catch {
+        if (!cancelled) setLinkedTrailId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appService, isEcho, item.id, item.type]);
+
+  const openLinkedEchoTrail = (trailId: string) => {
+    useEchoesUiStore.getState().setActiveEchoId(trailId);
+    setNotebookVisible(true);
+    setNotebookActiveTab('echoes');
+  };
+
+  const cascadeDeleteEchoTrail = (trailId: string) => {
+    if (!appService) return;
+    const activeId = useEchoesUiStore.getState().activeEchoId;
+    if (activeId === trailId) {
+      useEchoesUiStore.getState().setActiveEchoId(null);
+    }
+    try {
+      const store = getPersistentEchoStore(fileSystemFromAppService(appService));
+      void deleteEchoTrail(store, trailId);
+    } catch {
+      // Store unavailable — stub/annotation is already gone; trail may need library reconcile.
+    }
+  };
   const saveBookmarkText = (draftText: string) => {
     const config = getConfig(bookKey);
     if (!config || !draftText) return;
@@ -127,6 +171,11 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
       onClick?.();
       return;
     }
+    // Native annotation-linked trails open Echoes in place (resolved via store).
+    if (linkedTrailId) {
+      openLinkedEchoTrail(linkedTrailId);
+      return;
+    }
     eventDispatcher.dispatch('navigate', { bookKey, cfi });
 
     onClick?.();
@@ -150,21 +199,28 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
       saveConfig(envConfig, bookKey, updatedConfig, settings);
     }
 
-    // Echo stubs are pointers into Books/_echoes/echoes.json — tombstoning the
-    // stub alone leaves an orphan on Library → Echoes. Cascade delete the trail.
-    const trailId = parseEchoNoteRef(note.note ?? '');
-    if (trailId && appService) {
-      const activeId = useEchoesUiStore.getState().activeEchoId;
-      if (activeId === trailId) {
-        useEchoesUiStore.getState().setActiveEchoId(null);
-      }
+    // Book-side pointers (legacy stub or native annotation) cascade into
+    // Books/_echoes/echoes.json so Library → Echoes does not keep orphans.
+    const stubTrailId = parseEchoNoteRef(note.note ?? '');
+    if (stubTrailId) {
+      cascadeDeleteEchoTrail(stubTrailId);
+      return;
+    }
+    if (linkedTrailId) {
+      cascadeDeleteEchoTrail(linkedTrailId);
+      return;
+    }
+    if (!appService) return;
+    void (async () => {
       try {
         const store = getPersistentEchoStore(fileSystemFromAppService(appService));
-        void deleteEchoTrail(store, trailId);
+        const trails = await store.list();
+        const linked = trails.find((t) => t.noteId === note.id || t.seed.annotationId === note.id);
+        if (linked) cascadeDeleteEchoTrail(linked.id);
       } catch {
-        // Store unavailable — stub is already gone; trail may need library reconcile.
+        // Store unavailable — annotation is already gone; trail may need library reconcile.
       }
-    }
+    })();
   };
 
   const editNote = (note: BookNote) => {

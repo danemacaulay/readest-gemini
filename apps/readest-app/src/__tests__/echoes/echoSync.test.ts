@@ -69,6 +69,85 @@ describe('echoSync', () => {
     ]);
   });
 
+  it('keeps promoted trails linked to a live native annotation by noteId', () => {
+    const trails = [
+      trail({ id: 'trail-anno', noteId: 'anno-1' }),
+      trail({ id: 'trail-orphan', noteId: 'anno-missing' }),
+    ];
+    const annotation: BookNote = {
+      id: 'anno-1',
+      type: 'annotation',
+      cfi: 'epubcfi(/6/4!/4/2,/1:0,/1:5)',
+      text: 'seed quote',
+      note: 'synthesis body',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const booknotesByHash = new Map([['bookA', [annotation]]]);
+    expect(findLiveEchoStub([annotation], 'trail-anno', 'anno-1')?.id).toBe('anno-1');
+    expect(orphanedPromotedTrails(trails, booknotesByHash).map((t) => t.id)).toEqual([
+      'trail-orphan',
+    ]);
+    expect(filterTrailsWithLiveStubs(trails, booknotesByHash).map((t) => t.id)).toEqual([
+      'trail-anno',
+    ]);
+  });
+
+  it('treats a tombstoned annotation pointer as orphan even without a stub', () => {
+    const trails = [trail({ id: 'trail-dead', noteId: 'anno-dead' })];
+    const booknotesByHash = new Map<string, BookNote[] | undefined>([
+      [
+        'bookA',
+        [
+          {
+            id: 'anno-dead',
+            type: 'annotation',
+            cfi: '',
+            text: 'gone',
+            note: '',
+            createdAt: 1,
+            updatedAt: 1,
+            deletedAt: 99,
+          },
+        ],
+      ],
+    ]);
+    expect(orphanedPromotedTrails(trails, booknotesByHash).map((t) => t.id)).toEqual([
+      'trail-dead',
+    ]);
+  });
+
+  it('keeps a trail when only a legacy echo stub remains (no annotation)', () => {
+    const trails = [trail({ id: 'trail-legacy', noteId: 'anno-gone' })];
+    const booknotesByHash = new Map([
+      ['bookA', [stub({ id: 'stub-legacy', note: 'echo:trail-legacy' })]],
+    ]);
+    expect(orphanedPromotedTrails(trails, booknotesByHash)).toEqual([]);
+    expect(filterTrailsWithLiveStubs(trails, booknotesByHash).map((t) => t.id)).toEqual([
+      'trail-legacy',
+    ]);
+  });
+
+  it('uses seed.annotationId when noteId is missing', () => {
+    const trails = [
+      trail({
+        id: 'trail-seed-anno',
+        seed: { bookHash: 'bookA', annotationId: 'anno-seed' },
+      }),
+    ];
+    const annotation: BookNote = {
+      id: 'anno-seed',
+      type: 'annotation',
+      cfi: '',
+      text: 'seed',
+      note: 'body',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const booknotesByHash = new Map([['bookA', [annotation]]]);
+    expect(orphanedPromotedTrails(trails, booknotesByHash)).toEqual([]);
+  });
+
   it('keeps trails when booknotes were not loaded for that hash', () => {
     const trails = [trail({ id: 'trail-unknown' })];
     const booknotesByHash = new Map<string, BookNote[] | undefined>();
