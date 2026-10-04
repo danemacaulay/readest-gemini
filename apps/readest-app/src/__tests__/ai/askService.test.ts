@@ -8,14 +8,14 @@ describe('runAsk', () => {
       {
         bookHash: 'h1',
         bookTitle: 'Book',
+        bookAuthor: 'Author',
         selectionText: 'sel',
-        question: 'Why?',
       },
       { complete: complete as never, agyPath: 'agy' },
     );
     expect(complete).toHaveBeenCalledOnce();
     expect(complete).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.stringContaining('Author'),
       expect.objectContaining({ sandbox: true, skipPermissions: false }),
     );
     expect(result.answer).toBe('Answer text');

@@ -125,7 +125,6 @@ import {
   parseReadEraBackup,
 } from '@/utils/readera';
 import { convertReadEraDocToBookNotes } from '@/services/annotation/providers/readera';
-import AskComposer from '@/components/ask/AskComposer';
 import { runAskForNote } from '@/services/ai/ask/runAskForNote';
 import { completeWithAntigravity } from '@/services/ai/ask/antigravityClient';
 import { tauriRunCommand } from '@/services/ai/ask/runCommand';
@@ -212,9 +211,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     annotationId: string;
     placeholderIds: string[];
   } | null>(null);
-  const [showAskComposer, setShowAskComposer] = useState(false);
-  const [askSelectionText, setAskSelectionText] = useState('');
-  const [askSelectionCfi, setAskSelectionCfi] = useState<string | undefined>();
   const askInFlightRef = useRef(false);
   const [annotationNotes, setAnnotationNotes] = useState<BookNote[]>([]);
   const [editingAnnotation, setEditingAnnotation] = useState<BookNote | null>(null);
@@ -1736,29 +1732,12 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     handleDismissPopupAndSelection();
   };
 
+  // One-tap Ask: fixed expand+argue prompt, no question composer. Create the
+  // highlight while selection is live, dismiss UI, then run agy headlessly and
+  // write the answer onto the note (same silent path as before).
   const handleAsk = () => {
     if (!selection?.text) return;
     if (selection.popup && !selection.cfi) return;
-    if (askInFlightRef.current) {
-      eventDispatcher.dispatch('toast', {
-        type: 'info',
-        message: _('Ask already in progress'),
-        timeout: 2000,
-      });
-      return;
-    }
-    setShowAnnotPopup(false);
-    void suppressNativeSelectionHandles();
-    setAskSelectionText(selection.text);
-    setAskSelectionCfi(
-      selection.cfi ||
-        (selection.popup ? undefined : view?.getCFI(selection.index, selection.range)),
-    );
-    setShowAskComposer(true);
-  };
-
-  const handleAskComposerSubmit = (question: string) => {
-    if (!selection?.text) return;
     if (askInFlightRef.current) {
       eventDispatcher.dispatch('toast', {
         type: 'info',
@@ -1771,16 +1750,16 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
 
     const bookHash = bookKey.split('-')[0]!;
     const bookTitle = bookData.book?.title || '';
-    const selectionText = askSelectionText || selection.text;
-    const selectionCfi = askSelectionCfi;
+    const bookAuthor = bookData.book?.author || '';
+    const selectionText = selection.text;
+    const selectionCfi =
+      selection.cfi ||
+      (selection.popup ? undefined : view?.getCFI(selection.index, selection.range));
 
-    // Capture href like Annotate before highlight.
     if (!selection.popup) {
       selection.href = progress.sectionHref;
     }
 
-    // Create the highlight while selection is still live, then dismiss UI
-    // immediately so the agy wait does not leave the selection chrome up.
     // Track only newly created ids (like Annotate's placeholderIds) so a
     // failed Ask can take back an empty placeholder without deleting a
     // highlight the user already had at this CFI.
@@ -1791,7 +1770,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       getConfig(bookKey)?.booknotes?.find(
         (a) => a.type === 'annotation' && a.cfi === selectionCfi && !a.deletedAt,
       );
-    setShowAskComposer(false);
     if (!target) {
       askInFlightRef.current = false;
       eventDispatcher.dispatch('toast', {
@@ -1811,9 +1789,9 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           {
             bookHash,
             bookTitle,
+            bookAuthor,
             selectionText,
             selectionCfi,
-            question,
           },
           {
             askDeps: {
@@ -2705,11 +2683,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // toolbar: hide them while any of those is open, and let them come back with
   // the toolbar (or go with the dismiss).
   const overlaySurfaceOpen =
-    showDictionaryPopup ||
-    showDeepLPopup ||
-    showProofreadPopup ||
-    !!noteEditorTarget ||
-    showAskComposer;
+    showDictionaryPopup || showDeepLPopup || showProofreadPopup || !!noteEditorTarget;
 
   // Below `sm` (or short landscape) the note editor is a bottom sheet rather
   // than a popup pinned to the selection: an anchored editor would sit under
@@ -2910,13 +2884,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           />
         </ModalPortal>
       )}
-      <AskComposer
-        open={showAskComposer}
-        selectionText={askSelectionText}
-        bookTitle={bookData.book?.title || ''}
-        onClose={() => setShowAskComposer(false)}
-        onSubmit={handleAskComposerSubmit}
-      />
       {importingAnnotations && (
         <div
           data-capture-blocking-overlay='true'

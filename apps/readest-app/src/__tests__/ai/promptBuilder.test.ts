@@ -2,16 +2,28 @@ import { describe, it, expect } from 'vitest';
 import { buildAskPrompt, SELECTION_CHAR_LIMIT } from '../../services/ai/ask/promptBuilder';
 
 describe('buildAskPrompt', () => {
-  it('includes book, selection, and question', () => {
+  it('includes book, author, quote, and expand+argue instructions', () => {
     const result = buildAskPrompt({
       bookTitle: 'Example Book',
+      bookAuthor: 'Jane Doe',
       selectionText: 'Some passage',
-      question: 'What does this mean?',
     });
     expect(result.prompt).toContain('Example Book');
+    expect(result.prompt).toContain('Jane Doe');
     expect(result.prompt).toContain('Some passage');
-    expect(result.prompt).toContain('What does this mean?');
+    expect(result.prompt).toMatch(/1\) Expand/);
+    expect(result.prompt).toMatch(/2\) Argue/);
+    expect(result.prompt.toLowerCase()).toMatch(/do not use tools/);
+    expect(result.prompt).not.toContain('Question:');
     expect(result.truncatedSelection).toBe(false);
+  });
+
+  it('uses Unknown when author is missing', () => {
+    const result = buildAskPrompt({
+      bookTitle: 'B',
+      selectionText: 'sel',
+    });
+    expect(result.prompt).toContain('Author: Unknown');
   });
 
   it('truncates long selection', () => {
@@ -19,31 +31,9 @@ describe('buildAskPrompt', () => {
     const result = buildAskPrompt({
       bookTitle: 'B',
       selectionText,
-      question: 'Q',
     });
     expect(result.truncatedSelection).toBe(true);
-    expect(result.prompt.length).toBeLessThan(selectionText.length + 500);
-  });
-
-  it('does not expose library context in prompt API', () => {
-    const result = buildAskPrompt({
-      bookTitle: 'B',
-      selectionText: 'sel',
-      question: 'Q',
-    });
-    expect(result.prompt).not.toContain('Library context');
-    expect('truncatedLibrary' in result).toBe(false);
-  });
-
-  it('instructs the model to answer from the passage without tools', () => {
-    const result = buildAskPrompt({
-      bookTitle: 'B',
-      selectionText: 'sel',
-      question: 'Q',
-    });
-    expect(result.prompt.toLowerCase()).toMatch(/do not (use |run )?tools|without tools|no tools/);
-    expect(result.prompt.toLowerCase()).toMatch(
-      /selected passage|passage only|from the (selected )?passage/,
-    );
+    expect(result.prompt).toContain('…[truncated]');
+    expect(result.prompt).not.toContain(selectionText);
   });
 });

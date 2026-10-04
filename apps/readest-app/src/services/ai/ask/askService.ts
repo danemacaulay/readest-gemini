@@ -11,8 +11,8 @@ export type AskDeps = {
 export async function runAsk(req: AskRequest, deps: AskDeps): Promise<AskResult> {
   const built = buildAskPrompt({
     bookTitle: req.bookTitle,
+    bookAuthor: req.bookAuthor,
     selectionText: req.selectionText,
-    question: req.question,
   });
   const { text } = await deps.complete(built.prompt, {
     agyPath: deps.agyPath,

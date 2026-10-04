@@ -14,7 +14,7 @@ describe('runAskForNote', () => {
         bookTitle: 'Book',
         selectionText: 'sel',
         selectionCfi: 'epubcfi(/1)',
-        question: 'Why?',
+        bookAuthor: 'Author',
       },
       {
         runAsk: runAsk as never,
@@ -40,7 +40,7 @@ describe('runAskForNote', () => {
         bookHash: 'h',
         bookTitle: 'Book',
         selectionText: 'sel',
-        question: 'Why?',
+        bookAuthor: 'Author',
       },
       {
         runAsk: vi.fn(async () => {
@@ -69,7 +69,7 @@ describe('runAskForNote', () => {
         bookHash: 'h',
         bookTitle: 'Book',
         selectionText: 'sel',
-        question: 'Why?',
+        bookAuthor: 'Author',
       },
       {
         runAsk: vi.fn(async () => ({ answer: 'Hello', truncatedSelection: false })) as never,
@@ -94,7 +94,7 @@ describe('runAskForNote', () => {
         bookHash: 'h',
         bookTitle: 'Book',
         selectionText: 'sel',
-        question: 'Why?',
+        bookAuthor: 'Author',
       },
       {
         runAsk: runAsk as never,

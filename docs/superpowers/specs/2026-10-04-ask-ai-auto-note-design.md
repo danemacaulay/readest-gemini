@@ -22,7 +22,7 @@ No global Ask history. No Ask with library. No Ask chat panel.
 ## Goals
 
 - Restore **Ask** (ungrounded only) on the selection toolbar
-- Collect a question via **AskComposer**
+- **One-tap Ask** — no question composer; fixed expand+argue prompt with book title + author + quote
 - Run Ask headlessly after dismiss
 - On success: create/update the highlight like Annotate and write the note body
 - Note body = **assistant answer only** (highlight already anchors the passage; no citation footer)
@@ -42,11 +42,10 @@ No global Ask history. No Ask with library. No Ask chat panel.
 
 ```
 Select text → Ask (toolbar)
-  → AskComposer (question)
-  → Dismiss selection + composer
-  → Background ungrounded Ask (agy)
-  → Success: highlight + note + toast
-  → Failure: error toast, no note
+  → Create highlight + dismiss selection
+  → Background ungrounded Ask (agy) with fixed expand+argue prompt
+  → Success: note + toast
+  → Failure: error toast; remove empty placeholder highlight
 ```
 
 ### Note body format

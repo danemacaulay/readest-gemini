@@ -7,22 +7,26 @@ function truncate(text: string, limit: number): { text: string; truncated: boole
 
 export function buildAskPrompt(input: {
   bookTitle: string;
+  bookAuthor?: string;
   selectionText: string;
-  question: string;
 }): { prompt: string; truncatedSelection: boolean } {
   const sel = truncate(input.selectionText.trim(), SELECTION_CHAR_LIMIT);
-  const prompt = `You are a careful reading assistant. Answer the user's question about the selected passage only.
-Do not use tools, run shell commands, browse the filesystem, or search the web.
-Reply with plain prose only — no JSON, no tool traces.
+  const author = input.bookAuthor?.trim() || 'Unknown';
+  const prompt = `You are a careful reading assistant. Write a keepable note on the selected quote in light of its author and book.
+
+1) Expand: what the quote is saying, why it matters in context, and what a careful reader might take from it (1–2 short paragraphs).
+2) Argue: briefly steelman the claim, then offer one genuine counterpoint or tension (1 short paragraph).
+
+Do not use tools, browse the filesystem, or search the web.
+Plain prose only — no JSON, no tool traces. Prefer short paragraphs over bullets.
 
 Book: ${input.bookTitle}
+Author: ${author}
 
-Selected passage:
+Quote:
 """
 ${sel.text}
 """
-
-Question: ${input.question}
 `;
   return { prompt, truncatedSelection: sel.truncated };
 }

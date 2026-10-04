@@ -1,9 +1,9 @@
 export type AskRequest = {
   bookHash: string;
   bookTitle: string;
+  bookAuthor?: string;
   selectionText: string;
   selectionCfi?: string;
-  question: string;
 };
 
 export type AskResult = {

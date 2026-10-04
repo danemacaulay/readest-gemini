@@ -1,6 +1,6 @@
 /**
- * Selection Ask opens AskComposer, then runs headless Ask → note via
- * runAskForNote. One in-flight Ask per Annotator; second submit is ignored.
+ * One-tap selection Ask runs headless Ask → note via runAskForNote.
+ * One in-flight Ask per Annotator; second tap is ignored.
  */
 
 import { act, cleanup, render, screen } from '@testing-library/react';
@@ -77,7 +77,13 @@ vi.mock('@/store/bookDataStore', () => {
     setConfig: h.setConfig,
     saveConfig: h.saveConfig,
     getBookData: () => ({
-      book: { format: 'EPUB', primaryLanguage: 'en', title: 'Test Book', hash: 'book' },
+      book: {
+        format: 'EPUB',
+        primaryLanguage: 'en',
+        title: 'Test Book',
+        author: 'Test Author',
+        hash: 'book',
+      },
       bookDoc: { metadata: { language: 'en' } },
       isFixedLayout: false,
     }),
@@ -235,24 +241,6 @@ vi.mock('@/app/reader/components/annotator/AnnotationPopup', () => ({
   ),
 }));
 
-vi.mock('@/components/ask/AskComposer', () => ({
-  default: (props: {
-    open: boolean;
-    selectionText: string;
-    bookTitle: string;
-    onClose: () => void;
-    onSubmit: (question: string) => void;
-  }) =>
-    props.open ? (
-      <div data-testid='ask-composer'>
-        <span data-testid='ask-selection'>{props.selectionText}</span>
-        <span data-testid='ask-book'>{props.bookTitle}</span>
-        <button onClick={() => props.onSubmit('what does this mean?')}>stub-ask-submit</button>
-        <button onClick={props.onClose}>stub-ask-close</button>
-      </div>
-    ) : null,
-}));
-
 import Annotator from '@/app/reader/components/annotator/Annotator';
 
 const originalDispatch = eventDispatcher.dispatch.bind(eventDispatcher);
@@ -278,7 +266,7 @@ const selectText = async () => {
   });
 };
 
-const openAskComposer = async () => {
+const tapAsk = async () => {
   render(<Annotator bookKey='book-1' contentInsets={{ top: 0, right: 0, bottom: 0, left: 0 }} />);
   await selectText();
   await act(async () => {
@@ -311,25 +299,17 @@ afterEach(() => {
 });
 
 describe('Annotator Ask → note', () => {
-  test('submitting AskComposer calls runAskForNote once with selection + question', async () => {
-    await openAskComposer();
-
-    expect(screen.getByTestId('ask-composer')).toBeTruthy();
-    expect(screen.getByTestId('ask-selection').textContent).toBe('selected text');
-    expect(screen.getByTestId('ask-book').textContent).toBe('Test Book');
-
-    await act(async () => {
-      screen.getByText('stub-ask-submit').click();
-    });
+  test('tapping Ask calls runAskForNote once with selection + author (no composer)', async () => {
+    await tapAsk();
 
     expect(h.runAskForNote).toHaveBeenCalledTimes(1);
     expect(h.runAskForNote).toHaveBeenCalledWith(
       expect.objectContaining({
         bookHash: 'book',
         bookTitle: 'Test Book',
+        bookAuthor: 'Test Author',
         selectionText: 'selected text',
         selectionCfi: 'epubcfi(/6/2!/4/2)',
-        question: 'what does this mean?',
       }),
       expect.objectContaining({
         askDeps: expect.objectContaining({ agyPath: 'agy-from-settings' }),
@@ -358,14 +338,10 @@ describe('Annotator Ask → note', () => {
         }),
     );
 
-    await openAskComposer();
-    await act(async () => {
-      screen.getByText('stub-ask-submit').click();
-    });
+    await tapAsk();
 
     expect(h.deselect).toHaveBeenCalled();
     expect(deselectBeforeAskResolved).toBe(true);
-    expect(screen.queryByTestId('ask-composer')).toBeNull();
     expect(screen.queryByTestId('annot-popup')).toBeNull();
 
     await act(async () => {
@@ -382,21 +358,16 @@ describe('Annotator Ask → note', () => {
         }),
     );
 
-    await openAskComposer();
-    await act(async () => {
-      screen.getByText('stub-ask-submit').click();
-    });
+    await tapAsk();
     expect(h.runAskForNote).toHaveBeenCalledTimes(1);
 
-    // Composer closes on submit; a new selection while the first run is still
-    // pending must not start another Ask.
+    // A new selection while the first run is still pending must not start another Ask.
     await selectText();
     await act(async () => {
       screen.getByText('Ask').click();
     });
 
     expect(h.runAskForNote).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('ask-composer')).toBeNull();
     expect(h.toast).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Ask already in progress' }),
     );
@@ -409,10 +380,7 @@ describe('Annotator Ask → note', () => {
   test('removes newly created empty highlight when Ask fails', async () => {
     h.runAskForNote.mockResolvedValue(false);
 
-    await openAskComposer();
-    await act(async () => {
-      screen.getByText('stub-ask-submit').click();
-    });
+    await tapAsk();
 
     expect(h.runAskForNote).toHaveBeenCalledTimes(1);
     const annotations = h.config.booknotes.filter((n) => n.type === 'annotation');
@@ -435,10 +403,7 @@ describe('Annotator Ask → note', () => {
     h.config.booknotes = [preexisting];
     h.runAskForNote.mockResolvedValue(false);
 
-    await openAskComposer();
-    await act(async () => {
-      screen.getByText('stub-ask-submit').click();
-    });
+    await tapAsk();
 
     expect(h.runAskForNote).toHaveBeenCalledTimes(1);
     const kept = h.config.booknotes.find((n) => n.id === 'preexisting-hl');

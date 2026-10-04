@@ -67,7 +67,7 @@ export const annotationToolButtons = createAnnotationToolButtons([
   {
     type: 'ask',
     label: _('Ask'),
-    tooltip: _('Ask about the selected text'),
+    tooltip: _('Expand on the selected quote as a note'),
     Icon: LuMessageSquare,
   },
   {
