@@ -73,9 +73,39 @@ describe('annotationToolbar helpers', () => {
     ]);
   });
 
-  test('sanitize drops retired Ask tools from persisted configs', () => {
+  test('sanitize maps retired Ask tools to find-echoes', () => {
     expect(getToolbarToolTypes(['copy', 'ask', 'ask-with-library', 'tts'] as never, true)).toEqual([
       'copy',
+      'find-echoes',
+      'tts',
+    ]);
+  });
+
+  test('sanitize maps book-level Ask toolbar (overrides global) to Echoes', () => {
+    // Real persisted book config from soft-fork Ask era.
+    expect(
+      getToolbarToolTypes(
+        [
+          'copy',
+          'highlight',
+          'annotate',
+          'search',
+          'ask',
+          'ask-with-library',
+          'dictionary',
+          'translate',
+          'tts',
+        ] as never,
+        true,
+      ),
+    ).toEqual([
+      'copy',
+      'highlight',
+      'annotate',
+      'search',
+      'find-echoes',
+      'dictionary',
+      'translate',
       'tts',
     ]);
   });

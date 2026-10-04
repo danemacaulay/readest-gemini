@@ -39,13 +39,25 @@ export const DEFAULT_ANNOTATION_TOOLBAR_ITEMS: AnnotationToolType[] = [
   'proofread',
 ];
 
+// Retired Ask tools that older book/global configs may still list.
+const RETIRED_ASK_TOOLS = new Set(['ask', 'ask-with-library']);
+
 // Drop unknown/duplicate entries (including retired Ask tools persisted in
-// older configs); fall back to the default when unset.
+// older configs); fall back to the default when unset. Retired Ask slots map
+// to Find Echoes so per-book toolbars that still list Ask (and override the
+// global list) actually surface Echoes.
 const sanitize = (items: AnnotationToolType[] | undefined): AnnotationToolType[] => {
   const source = items ?? DEFAULT_ANNOTATION_TOOLBAR_ITEMS;
   const seen = new Set<AnnotationToolType>();
   const out: AnnotationToolType[] = [];
   for (const type of source) {
+    if (RETIRED_ASK_TOOLS.has(type)) {
+      if (!seen.has('find-echoes')) {
+        seen.add('find-echoes');
+        out.push('find-echoes');
+      }
+      continue;
+    }
     if (ALL_ANNOTATION_TOOL_TYPES.includes(type) && !seen.has(type)) {
       seen.add(type);
       out.push(type);
