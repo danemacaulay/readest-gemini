@@ -114,6 +114,12 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
       longPressedRef.current = false;
       return;
     }
+    // Echo stubs open the notebook Echoes tab; skip page navigate/goTo so we
+    // don't hide the notebook (unpinned) or remount a reader for the same book.
+    if (isEcho) {
+      onClick?.();
+      return;
+    }
     eventDispatcher.dispatch('navigate', { bookKey, cfi });
 
     onClick?.();

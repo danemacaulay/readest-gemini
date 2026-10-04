@@ -25,7 +25,12 @@ import {
   seedBookLabel,
   type EchoesListFilter,
 } from '@/services/echoes/filterEchoes';
+import { planOpenEchoBook } from '@/services/echoes/openEchoBook';
 import type { EchoTrail } from '@/services/echoes/types';
+import { useEchoesUiStore } from '@/store/echoesUiStore';
+import { useNotebookStore } from '@/store/notebookStore';
+import { useReaderStore } from '@/store/readerStore';
+import { eventDispatcher } from '@/utils/event';
 import { navigateToLibrary } from '@/utils/nav';
 import { useBookTransferActions } from '../hooks/useBookTransferActions';
 import { useOpenBook } from '../hooks/useOpenBook';
@@ -107,11 +112,32 @@ export default function EchoesPage() {
   const handleOpenTrail = useCallback(
     (trail: EchoTrail) => {
       const book = getBookByHash(trail.seed.bookHash);
-      if (book && !book.deletedAt) {
-        void openBook(book, trail.seed.cfi);
+      if (!book || book.deletedAt) {
+        setDetail(trail);
         return;
       }
-      setDetail(trail);
+
+      useEchoesUiStore.getState().setActiveEchoId(trail.id);
+      useNotebookStore.getState().setNotebookActiveTab('echoes');
+      useNotebookStore.getState().setNotebookVisible(true);
+
+      const readerMounted =
+        typeof window !== 'undefined' && window.location.pathname.startsWith('/reader');
+      const plan = planOpenEchoBook({
+        bookHash: book.hash,
+        bookKeys: useReaderStore.getState().bookKeys,
+        readerMounted,
+      });
+
+      if (plan.action === 'focus-existing' || plan.action === 'switch-in-reader') {
+        eventDispatcher.dispatch('open-book-in-reader', {
+          bookHash: book.hash,
+          cfi: trail.seed.cfi,
+        });
+        return;
+      }
+
+      void openBook(book, trail.seed.cfi);
     },
     [getBookByHash, openBook],
   );

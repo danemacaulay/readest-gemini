@@ -158,6 +158,31 @@ describe('BooknoteItem', () => {
     expect(mocks.setNotebookVisible).not.toHaveBeenCalled();
   });
 
+  it('opens an echo via onClick without dispatching navigate (same-book open-in-place)', () => {
+    const onClick = vi.fn();
+    const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
+    render(
+      <BooknoteTimeProvider>
+        <ul>
+          <BooknoteItem
+            bookKey='hash1-primary'
+            item={makeItem({
+              type: 'echo',
+              text: 'Virtue is excellence.',
+              note: 'echo:trail-1',
+              cfi: 'epubcfi(/6/4!/4/2/1:0)',
+            })}
+            onClick={onClick}
+          />
+        </ul>
+      </BooknoteTimeProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Virtue is excellence.'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
+  });
+
   it('shows Add Note on a bare highlight and saves a new note inline', async () => {
     const item = makeItem();
     mocks.state.booknotes = [item];
