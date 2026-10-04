@@ -14,12 +14,15 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
 import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
-import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
-import { continueEchoInChat, runEchoes } from '@/services/echoes/runEchoes';
 import { EchoConnectionList } from '@/components/echoes/EchoConnectionList';
 import { EchoIdeaChips } from '@/components/echoes/EchoIdeaChips';
+import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
+import { findLatestTrailForBook, planOpenEchoBook } from '@/services/echoes/openEchoBook';
+import { continueEchoInChat, runEchoes } from '@/services/echoes/runEchoes';
 import { findLibraryBookByCalibreId } from '@/services/echoes/resolveBook';
 import type { EchoTrail } from '@/services/echoes/types';
+import { useReaderStore } from '@/store/readerStore';
+import { useSidebarStore } from '@/store/sidebarStore';
 import { eventDispatcher } from '@/utils/event';
 import { navigateToReader } from '@/utils/nav';
 
@@ -67,6 +70,8 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
   const [composerQuestion, setComposerQuestion] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const lastRunTokenRef = useRef(0);
+  /** Prevents re-restoring after Discard clears selection for this book. */
+  const restoredForBookRef = useRef<string | null>(null);
 
   const bookHash = bookKey.split('-')[0]!;
   const bookData = getBookData(bookKey);
@@ -83,8 +88,32 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
   );
 
   useEffect(() => {
-    if (activeEchoId) void loadTrail(activeEchoId);
-  }, [activeEchoId, loadTrail]);
+    if (activeEchoId) {
+      restoredForBookRef.current = bookHash;
+      void loadTrail(activeEchoId);
+      return;
+    }
+
+    // Session selection is in-memory; after close/reopen, rehydrate the latest
+    // trail for this book from the durable store (prefer promoted).
+    if (!echoStore || pendingSeed || isRunning) return;
+    if (restoredForBookRef.current === bookHash) return;
+
+    let cancelled = false;
+    void (async () => {
+      const trails = await echoStore.list();
+      if (cancelled) return;
+      restoredForBookRef.current = bookHash;
+      const ui = useEchoesUiStore.getState();
+      if (ui.activeEchoId || ui.pendingSeed) return;
+      const latest = findLatestTrailForBook(trails, bookHash);
+      if (latest) setActiveEchoId(latest.id);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeEchoId, bookHash, echoStore, isRunning, loadTrail, pendingSeed, setActiveEchoId]);
 
   useEffect(() => {
     if (!echoStore || !pendingSeed || runToken === lastRunTokenRef.current) return;
@@ -214,6 +243,23 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
         message: _('Book not found in library'),
         timeout: 2500,
       });
+      return;
+    }
+
+    const readerMounted =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/reader');
+    const plan = planOpenEchoBook({
+      bookHash: book.hash,
+      bookKeys: useReaderStore.getState().bookKeys,
+      readerMounted,
+    });
+
+    if (plan.action === 'focus-existing') {
+      useSidebarStore.getState().setSideBarBookKey(plan.bookKey);
+      return;
+    }
+    if (plan.action === 'switch-in-reader') {
+      eventDispatcher.dispatch('open-book-in-reader', { bookHash: plan.bookHash });
       return;
     }
     navigateToReader(router, [book.hash]);
