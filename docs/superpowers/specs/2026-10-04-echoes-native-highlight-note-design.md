@@ -16,11 +16,13 @@ Echoes currently keeps the seed quote in the Notebook Echoes panel (“Seed” s
 - Keep Notebook → Echoes for comparative take + ideas + connections + sources/references
 - Keep **Library → Echoes** for cross-book trail browsing
 - Keep `echoes.json` for trail/evidence metadata, linked to the native annotation
+- **Selection-only entry:** remove Notebook Echoes “Ask across your library” composer; Find Echoes from a text selection is the only driver
 
 ## Non-goals
 
 - Global “all notes” library page
 - Removing Notebook → Echoes or Library → Echoes
+- Free-text / no-selection Echoes runs (composer)
 - Changing Open-source / open-other-book behavior beyond existing paths
 - Migrating historical promoted stubs in this design (call out in plan if needed)
 
@@ -46,9 +48,9 @@ No Discard/Save trail for the seed quote — finishing the run *is* saving the n
 | Comparative take (optional mirror of note; or link-only — plan decides) | **Seed** section (quote / question block) |
 | Ideas chips | Draft vs Saved trail chrome tied to promote |
 | Connections | Promote / Discard as seed lifecycle (if unused) |
-| Sources / references + Open | |
+| Sources / references + Open | Composer “Ask across your library…” / Find |
 
-Composer “Ask across your library” may remain for non-selection runs (no CFI) — plan decides whether those still create a note or stay evidence-only.
+**Drop** the Notebook Echoes composer (“Ask across your library…” / Find). Text selection → Find Echoes is the only way to start a trail (requires CFI).
 
 ### Library → Echoes
 
@@ -94,3 +96,4 @@ Failed Ask cleanup pattern: track newly created annotation ids; on failure call 
 3. Drop Seed UI from Echoes panel; keep ideas / connections / sources  
 4. Keep Library → Echoes and `echoes.json` for evidence + cross-book list  
 5. Follow Ask’s race-safe create-highlight-then-dismiss pattern  
+6. **Selection-only** — no free-text “Ask across your library” composer  
