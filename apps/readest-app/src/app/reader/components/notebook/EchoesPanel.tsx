@@ -16,6 +16,7 @@ import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
 import { EchoConnectionList } from '@/components/echoes/EchoConnectionList';
 import { EchoIdeaChips } from '@/components/echoes/EchoIdeaChips';
+import { EchoSourceCard } from '@/components/echoes/EchoSourceCard';
 import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
 import { findLatestTrailForBook, planOpenEchoBook } from '@/services/echoes/openEchoBook';
 import { continueEchoInChat, runEchoes } from '@/services/echoes/runEchoes';
@@ -382,29 +383,13 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
             ) : (
               <ul className='flex flex-col gap-2'>
                 {trail.sources.map((source) => (
-                  <li
+                  <EchoSourceCard
                     key={source.id}
-                    className='eink-bordered border-base-300 rounded-md border px-2 py-2 text-sm'
-                  >
-                    <div className='flex items-start justify-between gap-2'>
-                      <div className='min-w-0'>
-                        <p className='font-medium'>
-                          [{source.id}] {source.bookTitle || source.title}
-                        </p>
-                        <p className='text-base-content/70 line-clamp-3 text-xs'>
-                          {source.snippet}
-                        </p>
-                      </div>
-                      <button
-                        type='button'
-                        className='btn btn-ghost h-8 min-h-8 shrink-0 px-2 text-xs'
-                        onClick={() => handleOpenSource(source.bookId)}
-                        disabled={!source.bookId}
-                      >
-                        {_('Open')}
-                      </button>
-                    </div>
-                  </li>
+                    source={source}
+                    passages={trail.passages}
+                    onOpen={handleOpenSource}
+                    openDisabled={!source.bookId}
+                  />
                 ))}
               </ul>
             )}
