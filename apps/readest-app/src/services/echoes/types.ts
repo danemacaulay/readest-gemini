@@ -51,6 +51,8 @@ export type EchoTrailSeed = {
   bookTitle?: string;
   /** Native highlight BookNote id created at Find Echoes time. */
   annotationId?: string;
+  /** True when Find Echoes created a new highlight (vs reused existing). */
+  annotationIsNew?: boolean;
 };
 
 export type EchoTrail = {

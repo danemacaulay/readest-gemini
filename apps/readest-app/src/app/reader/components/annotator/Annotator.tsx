@@ -1718,14 +1718,40 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     if (!selection?.text) return;
     if (selection.popup && !selection.cfi) return;
     const bookHash = bookKey.split('-')[0]!;
+    const bookTitle = bookData.book?.title;
+    const seedText = selection.text;
     const cfi =
       selection.cfi ||
       (selection.popup ? undefined : view?.getCFI(selection.index, selection.range));
+
+    // Create the highlight while selection is live (same race-safe path as Ask).
+    // Failure cleanup of a newly created empty note happens in EchoesPanel (Task 4).
+    if (!selection.popup) {
+      selection.href = progress.sectionHref;
+    }
+    const created = handleHighlight(true);
+    const target =
+      created[0] ??
+      getConfig(bookKey)?.booknotes?.find(
+        (a) => a.type === 'annotation' && a.cfi === cfi && !a.deletedAt,
+      );
+    if (!target) {
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: _('Could not create note anchor.'),
+        timeout: 2000,
+      });
+      handleDismissPopupAndSelection();
+      return;
+    }
+
     requestEchoesRun({
       bookHash,
-      bookTitle: bookData.book?.title,
-      seedText: selection.text,
+      bookTitle,
+      seedText,
       cfi,
+      annotationId: target.id,
+      annotationIsNew: created.length > 0,
     });
     setNotebookVisible(true);
     setNotebookActiveTab('echoes');
