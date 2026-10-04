@@ -138,6 +138,16 @@ export function createMemoryEchoStore(initial?: EchoesSnapshot): EchoStore {
   );
 }
 
+let persistentSingleton: { fs: FileSystem; store: EchoStore } | null = null;
+
+/** Process-wide persistent store keyed by the injected FileSystem instance. */
+export function getPersistentEchoStore(fs: FileSystem): EchoStore {
+  if (persistentSingleton?.fs === fs) return persistentSingleton.store;
+  const store = createPersistentEchoStore(fs);
+  persistentSingleton = { fs, store };
+  return store;
+}
+
 /**
  * Durable EchoStore at `Books/_echoes/echoes.json` via Readest
  * `safeLoadJSON` / `safeSaveJSON`. Inject a FileSystem (from AppService.fs)

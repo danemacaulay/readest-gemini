@@ -18,7 +18,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useTrafficLight } from '@/hooks/useTrafficLight';
 import { useTranslation } from '@/hooks/useTranslation';
 import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
-import { createPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
+import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
 import {
   echoTrailTitle,
   filterPromotedEchoes,
@@ -70,7 +70,7 @@ export default function EchoesPage() {
   const getStore = useCallback((): EchoStore | null => {
     if (!appService) return null;
     if (!storeRef.current) {
-      storeRef.current = createPersistentEchoStore(fileSystemFromAppService(appService));
+      storeRef.current = getPersistentEchoStore(fileSystemFromAppService(appService));
     }
     return storeRef.current;
   }, [appService]);
