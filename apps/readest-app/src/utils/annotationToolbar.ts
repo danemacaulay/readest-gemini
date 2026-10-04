@@ -46,9 +46,8 @@ export const DEFAULT_ANNOTATION_TOOLBAR_ITEMS: AnnotationToolType[] = [
 const RETIRED_ASK_TOOLS = new Set(['ask-with-library']);
 
 // Drop unknown/duplicate entries (including retired Ask tools persisted in
-// older configs); fall back to the default when unset. Retired Ask slots map
-// to Find Echoes so per-book toolbars that still list Ask (and override the
-// global list) actually surface Echoes.
+// older configs); fall back to the default when unset. Legacy ask-with-library
+// slots map to Find Echoes; plain ask stays ask.
 const sanitize = (items: AnnotationToolType[] | undefined): AnnotationToolType[] => {
   const source = items ?? DEFAULT_ANNOTATION_TOOLBAR_ITEMS;
   const seen = new Set<AnnotationToolType>();

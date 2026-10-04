@@ -25,7 +25,7 @@ const h = vi.hoisted(() => ({
   suppressNativeSelectionHandles: vi.fn(),
   views: [] as { addAnnotation: ReturnType<typeof vi.fn> }[],
   isTextSelected: { current: true },
-  runAskForNote: vi.fn(async () => true),
+  runAskForNote: vi.fn(async (_req: unknown, _deps: unknown) => true),
   toast: vi.fn(),
 }));
 
@@ -198,7 +198,7 @@ vi.mock('@/services/transformService', () => ({
 }));
 
 vi.mock('@/services/ai/ask/runAskForNote', () => ({
-  runAskForNote: (...args: unknown[]) => h.runAskForNote(...args),
+  runAskForNote: (req: unknown, deps: unknown) => h.runAskForNote(req, deps),
 }));
 
 vi.mock('@/services/ai/ask/antigravityClient', () => ({
