@@ -1,5 +1,5 @@
 import { getAIFetch } from '../utils/httpFetch';
-import type { LightRAGRetrieveResult } from './types';
+import type { EchoesPassage, LightRAGRetrieveResult, LightRAGSource } from './types';
 
 export class LightRAGUnreachableError extends Error {
   constructor(baseUrl: string, detail?: string) {
@@ -11,11 +11,40 @@ export class LightRAGUnreachableError extends Error {
   }
 }
 
+function passagesToSources(passages: EchoesPassage[]): LightRAGSource[] {
+  return passages.map((p) => ({
+    id: p.id,
+    title: p.title || p.bookTitle || 'Passage',
+    snippet: p.snippet || (p.content ?? '').slice(0, 400),
+    bookId: p.bookId,
+    bookTitle: p.bookTitle,
+    kind: p.kind || 'passage',
+  }));
+}
+
+export function normalizeRetrieveResult(raw: LightRAGRetrieveResult): LightRAGRetrieveResult {
+  const passages = raw.passages ?? [];
+  const sources = raw.sources?.length
+    ? raw.sources
+    : passages.length
+      ? passagesToSources(passages)
+      : [];
+  const synthesisContext = raw.synthesisContext || raw.contextText || '';
+  return {
+    ...raw,
+    passages,
+    sources,
+    synthesisContext,
+    contextText: raw.contextText || synthesisContext,
+  };
+}
+
 export async function retrieveFromLightRAG(opts: {
   baseUrl: string;
   query: string;
   selection?: string;
   mode?: string;
+  profile?: 'echoes' | 'raw';
   fetchImpl?: typeof fetch;
 }): Promise<LightRAGRetrieveResult> {
   // Prefer Tauri's Rust HTTP client — window.fetch to 127.0.0.1 from the
@@ -33,6 +62,7 @@ export async function retrieveFromLightRAG(opts: {
         query: opts.query,
         selection: opts.selection,
         mode: opts.mode ?? 'hybrid',
+        profile: opts.profile ?? 'echoes',
       }),
     });
   } catch {
@@ -52,5 +82,6 @@ export async function retrieveFromLightRAG(opts: {
       `LightRAG retrieve failed at ${base} (HTTP ${res.status}). Check lib-rag viz is running.`,
     );
   }
-  return (await res.json()) as LightRAGRetrieveResult;
+  const raw = (await res.json()) as LightRAGRetrieveResult;
+  return normalizeRetrieveResult(raw);
 }

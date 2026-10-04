@@ -91,4 +91,39 @@ describe('retrieveFromLightRAG', () => {
       message: expect.stringContaining('make viz'),
     });
   });
+
+  it('parses rich echoes payload and aliases passages to sources', async () => {
+    const fetchImpl = vi.fn(async (_url, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      expect(body.profile).toBe('echoes');
+      return new Response(
+        JSON.stringify({
+          books: [{ bookId: 1, bookTitle: 'Meditations', referenceId: '1', passageCount: 1 }],
+          passages: [
+            {
+              id: 's1',
+              bookId: 1,
+              bookTitle: 'Meditations',
+              content: 'The obstacle is the way.',
+              snippet: 'The obstacle is the way.',
+            },
+          ],
+          ideas: [{ id: 'i1', name: 'Assent', type: 'concept' }],
+          connections: [{ id: 'c1', from: 'Assent', to: 'Judgement' }],
+          synthesisContext: 'rich pack',
+        }),
+        { status: 200 },
+      );
+    });
+    const result = await retrieveFromLightRAG({
+      baseUrl: 'http://127.0.0.1:8765',
+      query: 'assent',
+      fetchImpl,
+    });
+    expect(result.synthesisContext).toBe('rich pack');
+    expect(result.contextText).toBe('rich pack');
+    expect(result.sources[0]?.bookTitle).toBe('Meditations');
+    expect(result.ideas?.[0]?.name).toBe('Assent');
+    expect(result.books?.[0]?.bookId).toBe(1);
+  });
 });
