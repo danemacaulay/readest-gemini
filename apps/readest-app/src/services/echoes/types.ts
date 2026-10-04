@@ -46,8 +46,11 @@ export type EchoTrailSeed = {
   bookHash: string;
   cfi?: string;
   seedText?: string;
+  /** Legacy; unused for new selection-only path. */
   question?: string;
   bookTitle?: string;
+  /** Native highlight BookNote id created at Find Echoes time. */
+  annotationId?: string;
 };
 
 export type EchoTrail = {
@@ -65,7 +68,7 @@ export type EchoTrail = {
   createdAt: number;
   updatedAt: number;
   agyConversationId?: string;
-  /** BookNote stub id when promoted. */
+  /** Annotation BookNote id for new trails; legacy promoted stub id otherwise. */
   noteId?: string;
 };
 
