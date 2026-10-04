@@ -411,13 +411,15 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
           </section>
 
           <div className='mt-auto flex flex-wrap justify-end gap-2 pt-1' dir='ltr'>
-            <button
-              type='button'
-              className='eink-bordered btn btn-ghost h-8 min-h-8 px-3'
-              onClick={() => void handleDiscard()}
-            >
-              {_('Discard')}
-            </button>
+            {trail.status === 'draft' && (
+              <button
+                type='button'
+                className='eink-bordered btn btn-ghost h-8 min-h-8 px-3'
+                onClick={() => void handleDiscard()}
+              >
+                {_('Discard')}
+              </button>
+            )}
             <button
               type='button'
               className='eink-bordered btn btn-ghost h-8 min-h-8 px-3'
@@ -425,14 +427,15 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
             >
               {_('Continue in chat')}
             </button>
-            <button
-              type='button'
-              className='btn btn-contrast h-8 min-h-8 px-3'
-              onClick={() => void handleSaveTrail()}
-              disabled={trail.status === 'promoted'}
-            >
-              {_('Save trail')}
-            </button>
+            {trail.status === 'draft' && (
+              <button
+                type='button'
+                className='btn btn-contrast h-8 min-h-8 px-3'
+                onClick={() => void handleSaveTrail()}
+              >
+                {_('Save trail')}
+              </button>
+            )}
           </div>
         </div>
       )}
