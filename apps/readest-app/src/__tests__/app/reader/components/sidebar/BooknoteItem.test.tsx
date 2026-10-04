@@ -125,11 +125,16 @@ const makeItem = (overrides: Partial<BookNote> = {}): BookNote => ({
   ...overrides,
 });
 
-const renderItem = (item: BookNote, inlineNoteEditing?: boolean) =>
+const renderItem = (item: BookNote, inlineNoteEditing?: boolean, linkedTrailId?: string | null) =>
   render(
     <BooknoteTimeProvider>
       <ul>
-        <BooknoteItem bookKey='hash1-primary' item={item} inlineNoteEditing={inlineNoteEditing} />
+        <BooknoteItem
+          bookKey='hash1-primary'
+          item={item}
+          inlineNoteEditing={inlineNoteEditing}
+          linkedTrailId={linkedTrailId}
+        />
       </ul>
     </BooknoteTimeProvider>,
   );
@@ -235,17 +240,16 @@ describe('BooknoteItem', () => {
     });
   });
 
-  it('opens Notebook Echoes for an annotation linked by trail.noteId', async () => {
+  it('opens Notebook Echoes for an annotation linked by trail.noteId', () => {
     const annotation = makeItem({
       id: 'anno-linked',
       type: 'annotation',
       text: 'seed quote',
       note: 'comparative take',
     });
-    mocks.trails = [{ id: 'trail-linked', noteId: 'anno-linked' }];
     const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
-    renderItem(annotation);
-    await act(async () => {});
+    // Parent (BooknoteView) passes linkedTrailId from a shared index — no per-row list().
+    renderItem(annotation, undefined, 'trail-linked');
 
     fireEvent.click(screen.getByText('seed quote'));
     expect(mocks.setActiveEchoId).toHaveBeenCalledWith('trail-linked');
@@ -254,7 +258,22 @@ describe('BooknoteItem', () => {
     expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
   });
 
-  it('cascades delete of an annotation-linked note into the echo trail store', async () => {
+  it('cascades delete of an annotation-linked note into the echo trail store', () => {
+    const annotation = makeItem({
+      id: 'anno-linked',
+      type: 'annotation',
+      text: 'seed quote',
+      note: 'comparative take',
+    });
+    mocks.state.booknotes = [annotation];
+    renderItem(annotation, undefined, 'trail-linked');
+
+    fireEvent.click(screen.getByLabelText('Delete'));
+    expect(mocks.updateBooknotes).toHaveBeenCalled();
+    expect(mocks.deleteEchoTrail).toHaveBeenCalledWith(expect.anything(), 'trail-linked');
+  });
+
+  it('falls back to async store.list on delete when linkedTrailId is not passed', async () => {
     const annotation = makeItem({
       id: 'anno-linked',
       type: 'annotation',
@@ -263,12 +282,14 @@ describe('BooknoteItem', () => {
     });
     mocks.state.booknotes = [annotation];
     mocks.trails = [{ id: 'trail-linked', noteId: 'anno-linked' }];
+    // Omit linkedTrailId so delete uses the async lookup fallback.
     renderItem(annotation);
-    await act(async () => {});
 
     fireEvent.click(screen.getByLabelText('Delete'));
     expect(mocks.updateBooknotes).toHaveBeenCalled();
-    expect(mocks.deleteEchoTrail).toHaveBeenCalledWith(expect.anything(), 'trail-linked');
+    await vi.waitFor(() => {
+      expect(mocks.deleteEchoTrail).toHaveBeenCalledWith(expect.anything(), 'trail-linked');
+    });
   });
 
   it('shows Add Note on a bare highlight and saves a new note inline', async () => {

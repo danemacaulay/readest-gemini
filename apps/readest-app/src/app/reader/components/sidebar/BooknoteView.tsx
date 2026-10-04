@@ -6,12 +6,15 @@ import * as CFI from 'foliate-js/epubcfi.js';
 import { PiMagnifyingGlass, PiNotePencil } from 'react-icons/pi';
 import { RiBookmark3Line, RiBookmarkLine } from 'react-icons/ri';
 
+import { useEnv } from '@/context/EnvContext';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { useNotebookStore } from '@/store/notebookStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
+import { getPersistentEchoStore } from '@/services/echoes/echoStore';
+import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService';
 import { findTocItemBS } from '@/services/nav';
 import { findNearestCfi } from '@/utils/cfi';
 import { TOCItem } from '@/libs/document';
@@ -51,6 +54,7 @@ const BooknoteView: React.FC<{
   toc: TOCItem[];
 }> = ({ type, bookKey, toc }) => {
   const _ = useTranslation();
+  const { appService } = useEnv();
   const { getConfig } = useBookDataStore();
   const { getProgress } = useReaderStore();
   const { setNotebookVisible, setNotebookActiveTab } = useNotebookStore();
@@ -66,6 +70,34 @@ const BooknoteView: React.FC<{
   const [query, setQuery] = useState('');
   const [excludedColors, setExcludedColors] = useState<HighlightColor[]>([]);
   const [excludedStyles, setExcludedStyles] = useState<HighlightStyle[]>([]);
+  // One store.list() for the whole sidebar — noteId → trailId for annotation rows.
+  const [noteIdToTrailId, setNoteIdToTrailId] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (type !== 'annotation' || !appService) {
+      setNoteIdToTrailId({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const store = getPersistentEchoStore(fileSystemFromAppService(appService));
+        const trails = await store.list();
+        if (cancelled) return;
+        const map: Record<string, string> = {};
+        for (const trail of trails) {
+          const noteId = trail.noteId ?? trail.seed.annotationId;
+          if (noteId) map[noteId] = trail.id;
+        }
+        setNoteIdToTrailId(map);
+      } catch {
+        if (!cancelled) setNoteIdToTrailId({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appService, type]);
 
   // Debounce the query the same 300 ms the Notebook SearchBar uses, so
   // typing doesn't regroup/re-sort hundreds of notes per keystroke.
@@ -380,6 +412,9 @@ const BooknoteView: React.FC<{
             bookKey={bookKey}
             item={row.item}
             isNearest={row.item.cfi === nearestCfi}
+            linkedTrailId={
+              row.item.type === 'annotation' ? (noteIdToTrailId[row.item.id] ?? null) : null
+            }
             onClick={
               row.item.type === 'echo' ? () => handleOpenEchoTrail(row.item) : handleBrowseBookNotes
             }
@@ -388,7 +423,15 @@ const BooknoteView: React.FC<{
         </ul>
       );
     },
-    [flatItems, bookKey, nearestCfi, handleBrowseBookNotes, handleOpenEchoTrail, type],
+    [
+      flatItems,
+      bookKey,
+      nearestCfi,
+      noteIdToTrailId,
+      handleBrowseBookNotes,
+      handleOpenEchoTrail,
+      type,
+    ],
   );
 
   // Always mount the listHostRef host so the height-measurement effect (and

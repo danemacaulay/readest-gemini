@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { MdEdit, MdDelete, MdContentCopy } from 'react-icons/md';
 
 import { useEnv } from '@/context/EnvContext';
@@ -37,6 +37,8 @@ interface BooknoteItemProps {
   isNearest?: boolean;
   onClick?: () => void;
   inlineNoteEditing?: boolean;
+  /** From parent noteId→trailId index; avoids per-row store.list(). */
+  linkedTrailId?: string | null;
 }
 
 const BooknoteItem: React.FC<BooknoteItemProps> = ({
@@ -45,6 +47,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   isNearest,
   onClick,
   inlineNoteEditing,
+  linkedTrailId = null,
 }) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
@@ -63,29 +66,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   // never falls through to navigate/goTo (which feels like a duplicate open).
   // Native annotation-linked trails are NOT stubs — they render as normal notes.
   const isEcho = item.type === 'echo' || !!parseEchoNoteRef(item.note ?? '');
-  const [linkedTrailId, setLinkedTrailId] = useState<string | null>(null);
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
-
-  useEffect(() => {
-    if (isEcho || item.type !== 'annotation' || !appService) {
-      setLinkedTrailId(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const store = getPersistentEchoStore(fileSystemFromAppService(appService));
-        const trails = await store.list();
-        const linked = trails.find((t) => t.noteId === item.id || t.seed.annotationId === item.id);
-        if (!cancelled) setLinkedTrailId(linked?.id ?? null);
-      } catch {
-        if (!cancelled) setLinkedTrailId(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [appService, isEcho, item.id, item.type]);
 
   const openLinkedEchoTrail = (trailId: string) => {
     useEchoesUiStore.getState().setActiveEchoId(trailId);
@@ -171,7 +152,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
       onClick?.();
       return;
     }
-    // Native annotation-linked trails open Echoes in place (resolved via store).
+    // Native annotation-linked trails open Echoes in place (parent shared index).
     if (linkedTrailId) {
       openLinkedEchoTrail(linkedTrailId);
       return;
