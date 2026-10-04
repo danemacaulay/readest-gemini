@@ -5,6 +5,7 @@ import {
   buildAntigravityPrompt,
   createAntigravityChatAdapter,
 } from '@/services/ai/adapters/AntigravityChatAdapter';
+import { formatBookMetadataPack } from '@/services/ai/adapters/bookContext';
 import type { RunCommand } from '@/services/ai/ask/antigravityClient';
 
 function textMessage(role: 'user' | 'assistant', text: string) {
@@ -45,29 +46,67 @@ function makeRunOpts(messages: ReturnType<typeof textMessage>[]) {
   } as never;
 }
 
+const samplePack = formatBookMetadataPack({
+  title: 'Dune',
+  author: 'Herbert',
+  tags: ['sci-fi'],
+  description: 'Desert planet epic.',
+});
+
 describe('buildAntigravityPrompt', () => {
-  it('includes LightRAG base URL and mode in instructions', () => {
+  it('allows web search, forbids filesystem, and omits LightRAG/curl', () => {
     const prompt = buildAntigravityPrompt({
       bookTitle: 'Dune',
       authorName: 'Herbert',
-      lightragBaseUrl: 'http://127.0.0.1:8765/',
-      lightragMode: 'hybrid',
+      bookContextPack: samplePack,
+      includeBookContext: true,
       messages: [{ role: 'user', content: 'Who is Paul?' }],
       resumeConversation: false,
     });
-    expect(prompt).toContain("curl -sS -m 3 -X POST 'http://127.0.0.1:8765/api/retrieve'");
-    expect(prompt).toContain('"mode":"hybrid"');
-    expect(prompt).toContain('Do not search the filesystem');
+    expect(prompt).toContain('web search');
+    expect(prompt).toMatch(/filesystem/i);
+    expect(prompt.toLowerCase()).not.toContain('lightrag');
+    expect(prompt).not.toContain('/api/retrieve');
+    expect(prompt).not.toContain('curl');
     expect(prompt).toContain('Dune');
     expect(prompt).toContain('Who is Paul?');
   });
 
-  it('on resume only includes the latest user turn after instructions', () => {
+  it('includes metadata pack when includeBookContext is true', () => {
+    const prompt = buildAntigravityPrompt({
+      bookTitle: 'Dune',
+      authorName: 'Herbert',
+      bookContextPack: samplePack,
+      includeBookContext: true,
+      messages: [{ role: 'user', content: 'Hi' }],
+      resumeConversation: false,
+    });
+    expect(prompt).toContain('Book details:');
+    expect(prompt).toContain('Title: Dune');
+    expect(prompt).toContain('Tags: sci-fi');
+    expect(prompt).toContain('Description: Desert planet epic.');
+  });
+
+  it('omits Description/Tags pack when includeBookContext is false', () => {
+    const prompt = buildAntigravityPrompt({
+      bookTitle: 'Dune',
+      authorName: 'Herbert',
+      bookContextPack: samplePack,
+      includeBookContext: false,
+      messages: [{ role: 'user', content: 'Hi' }],
+      resumeConversation: false,
+    });
+    expect(prompt).not.toContain('Book details:');
+    expect(prompt).not.toContain('Description: Desert planet epic.');
+    expect(prompt).not.toContain('Tags: sci-fi');
+  });
+
+  it('on resume only includes the latest user turn and omits metadata pack', () => {
     const prompt = buildAntigravityPrompt({
       bookTitle: 'Dune',
       authorName: '',
-      lightragBaseUrl: 'http://127.0.0.1:8765',
-      lightragMode: 'local',
+      bookContextPack: samplePack,
+      includeBookContext: false,
       messages: [
         { role: 'user', content: 'First' },
         { role: 'assistant', content: 'Answer' },
@@ -77,7 +116,11 @@ describe('buildAntigravityPrompt', () => {
     });
     expect(prompt).toContain('User:\nFollow up');
     expect(prompt).not.toContain('First');
-    expect(prompt).toContain('"mode":"local"');
+    expect(prompt).not.toContain('Book details:');
+    expect(prompt).not.toContain('Description: Desert planet epic.');
+    expect(prompt).not.toContain('Tags: sci-fi');
+    expect(prompt.toLowerCase()).not.toContain('lightrag');
+    expect(prompt).not.toContain('curl');
   });
 });
 
@@ -86,8 +129,6 @@ describe('createAntigravityChatAdapter', () => {
     ...DEFAULT_AI_SETTINGS,
     enabled: true,
     agyPath: 'agy',
-    lightragBaseUrl: 'http://127.0.0.1:8765',
-    lightragMode: 'hybrid',
   };
 
   it('calls completeWithAntigravity, emits text, and stores conversation id', async () => {
@@ -109,6 +150,12 @@ describe('createAntigravityChatAdapter', () => {
       settings,
       bookTitle: 'Dune',
       authorName: 'Herbert',
+      bookContext: {
+        title: 'Dune',
+        author: 'Herbert',
+        tags: ['sci-fi'],
+        description: 'Desert planet epic.',
+      },
       agyConversationId: null,
       onAgyConversationId,
       runCommand,
@@ -116,8 +163,13 @@ describe('createAntigravityChatAdapter', () => {
 
     const chunks = await drain(adapter.run(makeRunOpts([textMessage('user', 'Hi')])));
 
-    expect(seenPrompt).toContain("curl -sS -m 3 -X POST 'http://127.0.0.1:8765/api/retrieve'");
-    expect(seenPrompt).toContain('Do not search the filesystem');
+    expect(seenPrompt).toContain('web search');
+    expect(seenPrompt).toMatch(/filesystem/i);
+    expect(seenPrompt).toContain('Title: Dune');
+    expect(seenPrompt).toContain('Tags: sci-fi');
+    expect(seenPrompt.toLowerCase()).not.toContain('lightrag');
+    expect(seenPrompt).not.toContain('/api/retrieve');
+    expect(seenPrompt).not.toContain('curl');
     expect(seenArgs).toContain('--dangerously-skip-permissions');
     expect(seenArgs).toContain('--sandbox');
     expect(onAgyConversationId).toHaveBeenCalledWith('agy-1');
@@ -125,7 +177,7 @@ describe('createAntigravityChatAdapter', () => {
     expect(chunks.at(-1)?.status?.type).toBe('complete');
   });
 
-  it('passes --conversation on follow-up when agyConversationId is set', async () => {
+  it('passes --conversation on follow-up and omits metadata pack', async () => {
     let seenArgs: string[] = [];
     const runCommand: RunCommand = async (_cmd, args) => {
       seenArgs = args;
@@ -140,7 +192,13 @@ describe('createAntigravityChatAdapter', () => {
     const adapter = createAntigravityChatAdapter(() => ({
       settings,
       bookTitle: 'Dune',
-      authorName: '',
+      authorName: 'Herbert',
+      bookContext: {
+        title: 'Dune',
+        author: 'Herbert',
+        tags: ['sci-fi'],
+        description: 'Desert planet epic.',
+      },
       agyConversationId: 'agy-1',
       runCommand,
     }));
@@ -157,8 +215,13 @@ describe('createAntigravityChatAdapter', () => {
 
     expect(seenArgs).toContain('--conversation');
     expect(seenArgs).toContain('agy-1');
+    expect(seenArgs).toContain('--dangerously-skip-permissions');
+    expect(seenArgs).toContain('--sandbox');
     const prompt = String(seenArgs[1] ?? '');
     expect(prompt).toContain('Second');
     expect(prompt).not.toContain('First');
+    expect(prompt).not.toContain('Book details:');
+    expect(prompt).not.toContain('Description: Desert planet epic.');
+    expect(prompt).not.toContain('Tags: sci-fi');
   });
 });

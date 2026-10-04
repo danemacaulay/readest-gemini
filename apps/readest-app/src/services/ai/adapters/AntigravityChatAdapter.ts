@@ -9,57 +9,53 @@ import {
 } from '../ask/antigravityClient';
 import { aiLogger } from '../logger';
 import type { AISettings } from '../types';
+import { formatBookMetadataPack, type BookContextInput } from './bookContext';
 
-export interface AntigravityAdapterOptions {
+export type AntigravityAdapterOptions = {
   settings: AISettings;
   bookTitle: string;
   authorName: string;
+  bookContext?: BookContextInput;
   /** Stored Antigravity conversation id for follow-ups. */
   agyConversationId?: string | null;
   /** Persist a new/updated agy conversation id after a successful turn. */
   onAgyConversationId?: (id: string) => void;
   runCommand: RunCommand;
-}
+};
 
 /** Exported for unit tests — builds the instruction + user prompt for agy. */
 export function buildAntigravityPrompt(opts: {
   bookTitle: string;
   authorName: string;
-  lightragBaseUrl: string;
-  lightragMode: string;
+  bookContextPack?: string;
+  includeBookContext: boolean;
   messages: Array<{ role: string; content: string }>;
-  /** When resuming an agy conversation, only the latest user turn is needed. */
   resumeConversation: boolean;
 }): string {
-  const baseUrl = (opts.lightragBaseUrl || 'http://127.0.0.1:8765').replace(/\/$/, '');
-  const mode = opts.lightragMode || 'hybrid';
   const authorLine = opts.authorName?.trim() ? ` by ${opts.authorName.trim()}` : '';
-
-  const instructions = [
+  const parts = [
     `You are a reading assistant helping with "${opts.bookTitle}"${authorLine}.`,
     '',
     'Rules:',
-    '- Answer from the conversation and optional LightRAG retrieve below. Do not search the filesystem, do not run find/grep/ls over the home directory, and do not open books from disk.',
-    '- Keep tool use minimal; prefer a direct answer.',
+    '- You may use web search when it improves the answer.',
+    '- Do not search the local filesystem, do not run find/grep/ls over the home directory, and do not open book files from disk.',
+    '- Prefer a direct answer; keep tool use light.',
     '',
-    'Optional library grounding (only when cross-book/library context would help):',
-    `Run exactly: curl -sS -m 3 -X POST '${baseUrl}/api/retrieve' -H 'Content-Type: application/json' -d '{"query":"<search query>","mode":"${mode}"}'`,
-    'Use contextText / sources from the JSON if present. Do not invent citations.',
-    'If curl fails or times out, answer without library context and say so briefly.',
-    '',
-  ].join('\n');
-
+  ];
+  if (opts.includeBookContext && opts.bookContextPack?.trim()) {
+    parts.push('Book details:', opts.bookContextPack.trim(), '');
+  }
   if (opts.resumeConversation) {
     const lastUser = [...opts.messages].reverse().find((m) => m.role === 'user');
-    return `${instructions}User:\n${lastUser?.content?.trim() || ''}`;
+    parts.push(`User:\n${lastUser?.content?.trim() || ''}`);
+  } else {
+    const transcript = opts.messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n\n');
+    parts.push(`Conversation:\n${transcript}`);
   }
-
-  const transcript = opts.messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-    .join('\n\n');
-
-  return `${instructions}Conversation:\n${transcript}`;
+  return parts.join('\n');
 }
 
 function mapAgyError(err: unknown): string {
@@ -80,6 +76,7 @@ export function createAntigravityChatAdapter(
         settings,
         bookTitle,
         authorName,
+        bookContext,
         agyConversationId,
         onAgyConversationId,
         runCommand,
@@ -109,11 +106,15 @@ export function createAntigravityChatAdapter(
       }
 
       const resumeConversation = Boolean(agyConversationId);
+      const includeBookContext = !resumeConversation;
+      const bookContextPack = formatBookMetadataPack(
+        bookContext ?? { title: bookTitle, author: authorName },
+      );
       const prompt = buildAntigravityPrompt({
         bookTitle,
         authorName,
-        lightragBaseUrl: settings.lightragBaseUrl,
-        lightragMode: settings.lightragMode,
+        bookContextPack,
+        includeBookContext,
         messages: aiMessages,
         resumeConversation,
       });
@@ -123,9 +124,6 @@ export function createAntigravityChatAdapter(
           agyPath: settings.agyPath || 'agy',
           runCommand,
           conversationId: agyConversationId || undefined,
-          // Sandbox blocks filesystem sprawl (e.g. find ~); skipPermissions
-          // keeps headless print mode from hanging on tool prompts. curl to
-          // local LightRAG is instructed with -m 3 in the prompt.
           sandbox: true,
           skipPermissions: true,
         });
