@@ -16,6 +16,8 @@ import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
 import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
 import { continueEchoInChat, runEchoes } from '@/services/echoes/runEchoes';
+import { EchoConnectionList } from '@/components/echoes/EchoConnectionList';
+import { EchoIdeaChips } from '@/components/echoes/EchoIdeaChips';
 import { findLibraryBookByCalibreId } from '@/services/echoes/resolveBook';
 import type { EchoTrail } from '@/services/echoes/types';
 import { eventDispatcher } from '@/utils/event';
@@ -294,6 +296,24 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
             </h2>
             <p className='whitespace-pre-wrap text-sm leading-relaxed'>{trail.synthesis}</p>
           </section>
+
+          {(trail.ideas?.length ?? 0) > 0 && (
+            <section aria-labelledby='echoes-ideas-heading'>
+              <h2 id='echoes-ideas-heading' className='mb-2 text-xs font-medium opacity-70'>
+                {_('Ideas')}
+              </h2>
+              <EchoIdeaChips ideas={trail.ideas!} />
+            </section>
+          )}
+
+          {(trail.connections?.length ?? 0) > 0 && (
+            <section aria-labelledby='echoes-connections-heading'>
+              <h2 id='echoes-connections-heading' className='mb-2 text-xs font-medium opacity-70'>
+                {_('Connections')}
+              </h2>
+              <EchoConnectionList connections={trail.connections!} />
+            </section>
+          )}
 
           <section aria-labelledby='echoes-sources-heading'>
             <h2 id='echoes-sources-heading' className='mb-2 text-xs font-medium opacity-70'>
