@@ -24,7 +24,8 @@ import type { EchoTrail } from '@/services/echoes/types';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { eventDispatcher } from '@/utils/event';
-import { navigateToReader } from '@/utils/nav';
+import { focusExistingReaderWindow, navigateToReader } from '@/utils/nav';
+import { emitTo } from '@tauri-apps/api/event';
 
 type EchoesPanelProps = {
   bookKey: string;
@@ -246,23 +247,34 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
       return;
     }
 
-    const readerMounted =
-      typeof window !== 'undefined' && window.location.pathname.startsWith('/reader');
-    const plan = planOpenEchoBook({
-      bookHash: book.hash,
-      bookKeys: useReaderStore.getState().bookKeys,
-      readerMounted,
-    });
+    void (async () => {
+      const readerMounted =
+        typeof window !== 'undefined' && window.location.pathname.startsWith('/reader');
+      const plan = planOpenEchoBook({
+        bookHash: book.hash,
+        bookKeys: useReaderStore.getState().bookKeys,
+        readerMounted,
+      });
 
-    if (plan.action === 'focus-existing') {
-      useSidebarStore.getState().setSideBarBookKey(plan.bookKey);
-      return;
-    }
-    if (plan.action === 'switch-in-reader') {
-      eventDispatcher.dispatch('open-book-in-reader', { bookHash: plan.bookHash });
-      return;
-    }
-    navigateToReader(router, [book.hash]);
+      if (plan.action === 'focus-existing') {
+        useSidebarStore.getState().setSideBarBookKey(plan.bookKey);
+        return;
+      }
+
+      // Book already open in another Tauri reader window — focus that, don't
+      // replace this window's books or spawn a third copy.
+      const existingLabel = await focusExistingReaderWindow(book.hash);
+      if (existingLabel) {
+        await emitTo(existingLabel, 'reader-open-echo', { bookHash: book.hash });
+        return;
+      }
+
+      if (plan.action === 'switch-in-reader') {
+        eventDispatcher.dispatch('open-book-in-reader', { bookHash: plan.bookHash });
+        return;
+      }
+      navigateToReader(router, [book.hash]);
+    })();
   };
 
   return (

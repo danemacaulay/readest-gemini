@@ -6,8 +6,9 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useAppRouter } from '@/hooks/useAppRouter';
 import { hasFileSyncMirror, useMakeBookAvailable } from '@/hooks/useMakeBookAvailable';
 import { eventDispatcher } from '@/utils/event';
-import { navigateToReader, showReaderWindow } from '@/utils/nav';
+import { focusExistingReaderWindow, navigateToReader, showReaderWindow } from '@/utils/nav';
 import { isAbsEbook, isAudiobook } from '@/utils/audiobook';
+import { emitTo } from '@tauri-apps/api/event';
 
 interface UseOpenBookOptions {
   setLoading: Dispatch<SetStateAction<boolean>>;
@@ -85,6 +86,14 @@ export const useOpenBook = ({ setLoading, handleBookDownload }: UseOpenBookOptio
       if (options?.threadId) params.set('threadId', options.threadId);
       const queryParams = params.size ? params.toString() : undefined;
       if (appService?.hasWindow && settings.openBookInNewWindow) {
+        const existingLabel = await focusExistingReaderWindow(book.hash);
+        if (existingLabel) {
+          await emitTo(existingLabel, 'reader-open-echo', {
+            bookHash: book.hash,
+            cfi: cfi || undefined,
+          });
+          return;
+        }
         showReaderWindow(appService, [book.hash], queryParams);
       } else {
         setTimeout(() => {

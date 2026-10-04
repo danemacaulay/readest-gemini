@@ -25,6 +25,7 @@ import { useInlineTextEditor } from '../../hooks/useInlineTextEditor';
 import TextButton from '@/components/TextButton';
 import TextEditor from '@/components/TextEditor';
 import { BooknoteTimeLabel } from './BooknoteTime';
+import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
 
 interface BooknoteItemProps {
   bookKey: string;
@@ -53,7 +54,9 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
 
   const { text, cfi, note } = item;
   const isBookmark = item.type === 'bookmark';
-  const isEcho = item.type === 'echo';
+  // Prefer explicit type; also treat echo: refs as echoes so a mistyped stub
+  // never falls through to navigate/goTo (which feels like a duplicate open).
+  const isEcho = item.type === 'echo' || !!parseEchoNoteRef(item.note ?? '');
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
   const saveBookmarkText = (draftText: string) => {
     const config = getConfig(bookKey);

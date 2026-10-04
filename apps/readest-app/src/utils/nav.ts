@@ -67,6 +67,34 @@ export const showReaderWindow = (
   return createReaderWindow(appService, url);
 };
 
+/**
+ * If a reader window already has `bookHash` open (see readerWindowRegistry),
+ * focus it and return its label. Clears stale registry entries when the window
+ * is gone. Returns null when no live window owns the book.
+ */
+export const focusExistingReaderWindow = async (bookHash: string): Promise<string | null> => {
+  if (!isTauriAppPlatform() || !bookHash) return null;
+  const { getReaderWindowLabelForBook, clearReaderWindowBooks } = await import(
+    '@/services/echoes/readerWindowRegistry'
+  );
+  const label = getReaderWindowLabelForBook(bookHash);
+  if (!label) return null;
+  const win = await WebviewWindow.getByLabel(label);
+  if (!win) {
+    clearReaderWindowBooks(label);
+    return null;
+  }
+  try {
+    await win.show();
+    await win.unminimize();
+    await win.setFocus();
+    return label;
+  } catch {
+    clearReaderWindowBooks(label);
+    return null;
+  }
+};
+
 export const showLibraryWindow = (appService: AppService, filenames: string[]) => {
   const params = new URLSearchParams();
   filenames.forEach((filename) => params.append('file', filename));

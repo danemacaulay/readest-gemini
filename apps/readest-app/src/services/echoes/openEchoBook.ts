@@ -19,7 +19,7 @@ export function planOpenEchoBook(options: {
     return { action: 'navigate', bookHash };
   }
 
-  const existing = bookKeys.find((key) => key.split('-')[0] === bookHash);
+  const existing = bookKeys.find((key) => key === bookHash || key.startsWith(`${bookHash}-`));
   if (existing) {
     return { action: 'focus-existing', bookKey: existing };
   }

@@ -31,7 +31,8 @@ import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { useNotebookStore } from '@/store/notebookStore';
 import { useReaderStore } from '@/store/readerStore';
 import { eventDispatcher } from '@/utils/event';
-import { navigateToLibrary } from '@/utils/nav';
+import { focusExistingReaderWindow, navigateToLibrary } from '@/utils/nav';
+import { emitTo } from '@tauri-apps/api/event';
 import { useBookTransferActions } from '../hooks/useBookTransferActions';
 import { useOpenBook } from '../hooks/useOpenBook';
 
@@ -121,23 +122,37 @@ export default function EchoesPage() {
       useNotebookStore.getState().setNotebookActiveTab('echoes');
       useNotebookStore.getState().setNotebookVisible(true);
 
-      const readerMounted =
-        typeof window !== 'undefined' && window.location.pathname.startsWith('/reader');
-      const plan = planOpenEchoBook({
-        bookHash: book.hash,
-        bookKeys: useReaderStore.getState().bookKeys,
-        readerMounted,
-      });
+      void (async () => {
+        // Other Tauri windows have isolated Zustand stores — prefer focusing
+        // a reader that already published this book hash.
+        const existingLabel = await focusExistingReaderWindow(book.hash);
+        if (existingLabel) {
+          await emitTo(existingLabel, 'reader-open-echo', {
+            bookHash: book.hash,
+            trailId: trail.id,
+            cfi: trail.seed.cfi,
+          });
+          return;
+        }
 
-      if (plan.action === 'focus-existing' || plan.action === 'switch-in-reader') {
-        eventDispatcher.dispatch('open-book-in-reader', {
+        const readerMounted =
+          typeof window !== 'undefined' && window.location.pathname.startsWith('/reader');
+        const plan = planOpenEchoBook({
           bookHash: book.hash,
-          cfi: trail.seed.cfi,
+          bookKeys: useReaderStore.getState().bookKeys,
+          readerMounted,
         });
-        return;
-      }
 
-      void openBook(book, trail.seed.cfi);
+        if (plan.action === 'focus-existing' || plan.action === 'switch-in-reader') {
+          eventDispatcher.dispatch('open-book-in-reader', {
+            bookHash: book.hash,
+            cfi: trail.seed.cfi,
+          });
+          return;
+        }
+
+        void openBook(book, trail.seed.cfi);
+      })();
     },
     [getBookByHash, openBook],
   );

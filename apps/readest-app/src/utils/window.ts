@@ -138,6 +138,8 @@ export const tauriHandleOnCloseWindow = async (callback: () => void) => {
     }
     await callback();
     if (currentWindow.label.startsWith('reader')) {
+      const { clearReaderWindowBooks } = await import('@/services/echoes/readerWindowRegistry');
+      clearReaderWindowBooks(currentWindow.label);
       await emitTo('main', 'close-reader-window', { label: currentWindow.label });
       setTimeout(() => currentWindow.destroy(), 300);
     } else if (currentWindow.label === 'main') {

@@ -38,6 +38,11 @@ vi.mock('@/hooks/useAppRouter', () => ({
 vi.mock('@/utils/nav', () => ({
   navigateToReader,
   showReaderWindow: vi.fn(),
+  focusExistingReaderWindow: vi.fn(async () => null),
+}));
+
+vi.mock('@tauri-apps/api/event', () => ({
+  emitTo: vi.fn(async () => {}),
 }));
 
 vi.mock('@/services/sync/cloudSyncProvider', () => ({

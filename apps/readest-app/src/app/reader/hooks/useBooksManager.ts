@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { useEnv } from '@/context/EnvContext';
 import { useReaderStore } from '@/store/readerStore';
 import { useReaderProgressStore } from '@/store/readerProgressStore';
 import { useSidebarStore } from '@/store/sidebarStore';
+import { useEchoesUiStore } from '@/store/echoesUiStore';
+import { useNotebookStore } from '@/store/notebookStore';
 import { uniqueId } from '@/utils/misc';
 import { useParallelViewStore } from '@/store/parallelViewStore';
 import { navigateToReader } from '@/utils/nav';
 import { eventDispatcher } from '@/utils/event';
 import { consumePendingTTSAutoplay } from '@/utils/ttsAutoplay';
 import { useTranslation } from '@/hooks/useTranslation';
+import { isTauriAppPlatform } from '@/services/environment';
+import { publishReaderWindowBooks } from '@/services/echoes/readerWindowRegistry';
 
 const useBooksManager = () => {
   const router = useRouter();
@@ -147,6 +153,48 @@ const useBooksManager = () => {
     };
     eventDispatcher.on('open-book-in-reader', handle);
     return () => eventDispatcher.off('open-book-in-reader', handle);
+  }, []);
+
+  // Publish open books so other windows (library) can focus us instead of
+  // spawning a duplicate reader when openBookInNewWindow is on.
+  useEffect(() => {
+    if (!isTauriAppPlatform()) return;
+    try {
+      const label = getCurrentWindow().label;
+      const hashes = bookKeys.map((key) => key.split('-')[0]!).filter(Boolean);
+      publishReaderWindowBooks(label, hashes);
+    } catch {
+      // Non-Tauri / early boot.
+    }
+  }, [bookKeys]);
+
+  // Cross-window: library/echoes emit `reader-open-echo` after focusing us.
+  useEffect(() => {
+    if (!isTauriAppPlatform()) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWebview()
+      .listen(
+        'reader-open-echo',
+        (event: { payload: { bookHash: string; trailId?: string; cfi?: string } }) => {
+          const { bookHash, trailId, cfi } = event.payload;
+          openBookRef.current(bookHash, cfi);
+          if (trailId) {
+            useEchoesUiStore.getState().setActiveEchoId(trailId);
+            useNotebookStore.getState().setNotebookActiveTab('echoes');
+            useNotebookStore.getState().setNotebookVisible(true);
+          }
+        },
+      )
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 
   // Consume an Android Auto cold-resume autoplay request once its book is in the
