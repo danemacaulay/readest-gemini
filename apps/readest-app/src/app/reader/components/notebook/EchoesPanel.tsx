@@ -204,7 +204,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
     setNotebookActiveTab('ai');
   };
 
-  const handleOpenSource = (bookId?: string) => {
+  const handleOpenSource = (bookId?: string | number) => {
     const book = findLibraryBookByCalibreId(library, bookId);
     if (!book) {
       eventDispatcher.dispatch('toast', {
