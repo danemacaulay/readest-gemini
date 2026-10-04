@@ -11,11 +11,13 @@ import { IoMdCloseCircle } from 'react-icons/io';
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAppRouter } from '@/hooks/useAppRouter';
 import type { LibrarySearchConfig, LibrarySearchTarget } from '@/types/book';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useTrafficLight } from '@/hooks/useTrafficLight';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import useShortcuts from '@/hooks/useShortcuts';
+import { EchoesIcon } from '@/components/echoes/EchoesIcon';
 import WindowButtons from '@/components/WindowButtons';
 import Dropdown from '@/components/Dropdown';
 import SettingsMenu from './SettingsMenu';
@@ -65,6 +67,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
   onSearchTargetChange,
 }) => {
   const _ = useTranslation();
+  const router = useAppRouter();
   const { appService } = useEnv();
   const { systemUIVisible, statusBarHeight } = useThemeStore();
   const { currentBookshelf } = useLibraryStore();
@@ -257,6 +260,15 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
           </div>
         ) : (
           <div className='flex h-full items-center gap-x-2 sm:gap-x-4'>
+            <button
+              type='button'
+              onClick={() => router.push('/library/echoes')}
+              aria-label={_('Echoes')}
+              title={_('Echoes')}
+              className='btn btn-ghost h-8 min-h-8 w-8 p-0'
+            >
+              <EchoesIcon size={iconSize18} className='text-base-content' />
+            </button>
             <Dropdown
               label={_('View Menu')}
               className='exclude-title-bar-mousedown dropdown-bottom dropdown-end'
