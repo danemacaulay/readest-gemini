@@ -6,7 +6,7 @@ import { EchoIdeaChips, ideaChipClassName } from '@/components/echoes/EchoIdeaCh
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (key: string, opts?: Record<string, number | string>) => {
-    if (opts?.count != null) return key.replace('{{count}}', String(opts.count));
+    if (opts?.['count'] != null) return key.replace('{{count}}', String(opts['count']));
     return key;
   },
 }));
