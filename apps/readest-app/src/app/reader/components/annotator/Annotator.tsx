@@ -290,10 +290,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const globalToggleActive = !!currentAnnotation?.global;
   const annotPopupMaxWidth = Math.min(useResponsiveSize(300), maxWidth);
   const annotPopupToolSize = useResponsiveSize(44);
-  const aiEnabled = settings?.aiSettings?.enabled ?? false;
-  // Keep Find Echoes visible whenever it is on the customized toolbar. Hiding
-  // it when AI is off made Customize Toolbar look broken (tool added, never
-  // appears on highlight). Disable the button instead — see buildToolButton.
   const toolbarToolTypes = getToolbarToolTypes(viewSettings.annotationToolbarItems, canShare);
   const highlightOptionsGap = toolbarToolTypes.length <= 4 ? 4 : 8;
   // Three 30px styles, a four- or five-color pill (100px or 122px), and three gaps;
@@ -1714,7 +1710,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   };
 
   const handleFindEchoes = () => {
-    if (!selection?.text || !aiEnabled) return;
+    if (!selection?.text) return;
     if (selection.popup && !selection.cfi) return;
     const bookHash = bookKey.split('-')[0]!;
     const cfi =
@@ -2515,12 +2511,10 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
         };
       case 'find-echoes':
         return {
-          tooltipText: aiEnabled
-            ? _(label)
-            : _('Enable AI Assistant in Settings to use Find Echoes'),
+          tooltipText: _(label),
           Icon,
           onClick: handleFindEchoes,
-          disabled: popupSelectionNoCfi || !aiEnabled,
+          disabled: popupSelectionNoCfi,
         };
       case 'search':
         return { tooltipText: _(label), Icon, onClick: handleSearch };

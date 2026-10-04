@@ -21,10 +21,9 @@ const NotebookTabNavigation: React.FC<NotebookTabNavigationProps> = ({
   const { appService } = useEnv();
   const { settings } = useSettingsStore();
   const aiEnabled = settings?.aiSettings?.enabled ?? false;
-
-  const tabs: NotebookTab[] = aiEnabled ? ['notes', 'ai', 'echoes'] : [];
-
-  if (tabs.length === 0) return null;
+  // Echoes is its own product surface (LightRAG + agy), not gated on the
+  // generic "Enable AI Assistant" toggle. AI chat tab still respects that flag.
+  const tabs: NotebookTab[] = aiEnabled ? ['notes', 'ai', 'echoes'] : ['notes', 'echoes'];
 
   const getTabLabel = (tab: NotebookTab) => {
     switch (tab) {
