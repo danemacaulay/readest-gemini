@@ -26,6 +26,10 @@ import TextButton from '@/components/TextButton';
 import TextEditor from '@/components/TextEditor';
 import { BooknoteTimeLabel } from './BooknoteTime';
 import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
+import { getPersistentEchoStore } from '@/services/echoes/echoStore';
+import { deleteEchoTrail } from '@/services/echoes/echoSync';
+import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
+import { useEchoesUiStore } from '@/store/echoesUiStore';
 
 interface BooknoteItemProps {
   bookKey: string;
@@ -144,6 +148,22 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
     const updatedConfig = updateBooknotes(bookKey, booknotes);
     if (updatedConfig) {
       saveConfig(envConfig, bookKey, updatedConfig, settings);
+    }
+
+    // Echo stubs are pointers into Books/_echoes/echoes.json — tombstoning the
+    // stub alone leaves an orphan on Library → Echoes. Cascade delete the trail.
+    const trailId = parseEchoNoteRef(note.note ?? '');
+    if (trailId && appService) {
+      const activeId = useEchoesUiStore.getState().activeEchoId;
+      if (activeId === trailId) {
+        useEchoesUiStore.getState().setActiveEchoId(null);
+      }
+      try {
+        const store = getPersistentEchoStore(fileSystemFromAppService(appService));
+        void deleteEchoTrail(store, trailId);
+      } catch {
+        // Store unavailable — stub is already gone; trail may need library reconcile.
+      }
     }
   };
 

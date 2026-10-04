@@ -2,9 +2,17 @@
 
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
 import { IoArrowBack } from 'react-icons/io5';
-import { LuRadio } from 'react-icons/lu';
+import { LuRadio, LuTrash2 } from 'react-icons/lu';
 
 import Dialog from '@/components/Dialog';
 import { EchoesIcon } from '@/components/echoes/EchoesIcon';
@@ -15,10 +23,16 @@ import { useLibrary } from '@/hooks/useLibrary';
 import { useTheme } from '@/hooks/useTheme';
 import { useThemeStore } from '@/store/themeStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useTrafficLight } from '@/hooks/useTrafficLight';
 import { useTranslation } from '@/hooks/useTranslation';
 import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
 import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
+import {
+  deleteEchoTrail,
+  orphanedPromotedTrails,
+  tombstoneEchoStubs,
+} from '@/services/echoes/echoSync';
 import {
   echoTrailTitle,
   filterPromotedEchoes,
@@ -27,6 +41,7 @@ import {
 } from '@/services/echoes/filterEchoes';
 import { planOpenEchoBook } from '@/services/echoes/openEchoBook';
 import type { EchoTrail } from '@/services/echoes/types';
+import type { BookNote } from '@/types/book';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { useNotebookStore } from '@/store/notebookStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -52,6 +67,7 @@ export default function EchoesPage() {
   const { envConfig, appService } = useEnv();
   const { libraryLoaded } = useLibrary();
   const { getBookByHash, updateBook } = useLibraryStore();
+  const { settings } = useSettingsStore();
   const { safeAreaInsets: insets, isRoundedWindow } = useThemeStore();
   const headerRef = useRef<HTMLDivElement>(null);
   const { isTrafficLightVisible } = useTrafficLight(headerRef);
@@ -81,6 +97,39 @@ export default function EchoesPage() {
     return storeRef.current;
   }, [appService]);
 
+  const reconcileOrphans = useCallback(
+    async (store: EchoStore, listed: EchoTrail[]): Promise<EchoTrail[]> => {
+      if (!appService) return listed;
+      const promoted = listed.filter((t) => t.status === 'promoted');
+      const hashes = [...new Set(promoted.map((t) => t.seed.bookHash))];
+      const booknotesByHash = new Map<string, BookNote[] | undefined>();
+
+      await Promise.all(
+        hashes.map(async (hash) => {
+          const book = getBookByHash(hash);
+          if (!book || book.deletedAt) {
+            // No book → keep trail (shown as "book not found" on open).
+            return;
+          }
+          try {
+            const config = await appService.loadBookConfig(book, settings);
+            booknotesByHash.set(hash, config.booknotes ?? []);
+          } catch {
+            // Config unreadable — skip reconcile for this book.
+          }
+        }),
+      );
+
+      const orphans = orphanedPromotedTrails(listed, booknotesByHash);
+      for (const orphan of orphans) {
+        await deleteEchoTrail(store, orphan.id);
+      }
+      if (orphans.length === 0) return listed;
+      return listed.filter((t) => !orphans.some((o) => o.id === t.id));
+    },
+    [appService, getBookByHash, settings],
+  );
+
   useEffect(() => {
     let cancelled = false;
     const load = async (opts?: { quiet?: boolean }) => {
@@ -89,7 +138,8 @@ export default function EchoesPage() {
       if (!opts?.quiet) setListLoading(true);
       try {
         const next = await store.list();
-        if (!cancelled) setTrails(next);
+        const reconciled = await reconcileOrphans(store, next);
+        if (!cancelled) setTrails(reconciled);
       } finally {
         if (!cancelled && !opts?.quiet) setListLoading(false);
       }
@@ -103,7 +153,41 @@ export default function EchoesPage() {
       cancelled = true;
       window.removeEventListener('focus', onFocus);
     };
-  }, [getStore]);
+  }, [getStore, reconcileOrphans]);
+
+  const handleDeleteTrail = useCallback(
+    async (trail: EchoTrail, event: MouseEvent | KeyboardEvent) => {
+      event.stopPropagation();
+      event.preventDefault();
+      const store = getStore();
+      if (!store) return;
+
+      await deleteEchoTrail(store, trail.id);
+
+      const book = getBookByHash(trail.seed.bookHash);
+      if (book && !book.deletedAt && appService) {
+        try {
+          const config = await appService.loadBookConfig(book, settings);
+          const booknotes = tombstoneEchoStubs(
+            config.booknotes ?? [],
+            trail.id,
+            trail.noteId,
+            Date.now(),
+          );
+          await appService.saveBookConfig(book, { ...config, booknotes }, settings);
+        } catch {
+          // Trail is gone; stub may linger until next book open.
+        }
+      }
+
+      setTrails((prev) => prev.filter((t) => t.id !== trail.id));
+      if (detail?.id === trail.id) setDetail(null);
+      if (useEchoesUiStore.getState().activeEchoId === trail.id) {
+        useEchoesUiStore.getState().setActiveEchoId(null);
+      }
+    },
+    [appService, detail?.id, getBookByHash, getStore, settings],
+  );
 
   const visible = useMemo(
     () => filterPromotedEchoes(trails, { query, filter }),
@@ -313,6 +397,15 @@ export default function EchoesPage() {
                               </div>
                             ) : null}
                           </div>
+                          <button
+                            type='button'
+                            className='btn btn-ghost btn-square btn-sm text-base-content/40 hover:text-error shrink-0 opacity-70 group-hover:opacity-100'
+                            aria-label={_('Delete echo')}
+                            title={_('Delete echo')}
+                            onClick={(e) => void handleDeleteTrail(trail, e)}
+                          >
+                            <LuTrash2 size={16} />
+                          </button>
                         </div>
                       </li>
                     );

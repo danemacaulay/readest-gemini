@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
     toast: vi.fn(),
     addAnnotation: vi.fn(),
     saveConfig: vi.fn(),
+    deleteEchoTrail: vi.fn(async () => undefined),
     // Mirrors the real store: `updateBooknotes` writes back whatever array
     // it's called with (production code now returns a new array from
     // `updateBooknoteNoteText` instead of mutating the existing one).
@@ -74,6 +75,36 @@ vi.mock('@/hooks/useTranslation', () => ({
 
 vi.mock('@/hooks/useResponsiveSize', () => ({
   useResponsiveSize: (size: number) => size,
+}));
+
+vi.mock('@/services/echoes/echoStore', () => ({
+  getPersistentEchoStore: () => ({
+    delete: mocks.deleteEchoTrail,
+    get: async () => ({ id: 'trail-1' }),
+  }),
+}));
+
+vi.mock('@/services/echoes/echoSync', async () => {
+  const actual = await vi.importActual<typeof import('@/services/echoes/echoSync')>(
+    '@/services/echoes/echoSync',
+  );
+  return {
+    ...actual,
+    deleteEchoTrail: (...args: unknown[]) => mocks.deleteEchoTrail(...args),
+  };
+});
+
+vi.mock('@/services/ai/history/historyStore', () => ({
+  fileSystemFromAppService: () => ({}),
+}));
+
+vi.mock('@/store/echoesUiStore', () => ({
+  useEchoesUiStore: Object.assign(() => ({}), {
+    getState: () => ({
+      activeEchoId: null,
+      setActiveEchoId: vi.fn(),
+    }),
+  }),
 }));
 
 dayjs.extend(relativeTime);
@@ -181,6 +212,24 @@ describe('BooknoteItem', () => {
     fireEvent.click(screen.getByText('Virtue is excellence.'));
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
+  });
+
+  it('cascades echo stub delete into the echo trail store', async () => {
+    const echo = makeItem({
+      type: 'echo',
+      text: 'Virtue is excellence.',
+      note: 'echo:trail-1',
+      cfi: '',
+    });
+    mocks.state.booknotes = [echo];
+    renderItem(echo);
+
+    fireEvent.click(screen.getByLabelText('Delete'));
+    expect(mocks.updateBooknotes).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(mocks.deleteEchoTrail).toHaveBeenCalled();
+    });
+    expect(mocks.deleteEchoTrail.mock.calls[0]?.[1]).toBe('trail-1');
   });
 
   it('shows Add Note on a bare highlight and saves a new note inline', async () => {
