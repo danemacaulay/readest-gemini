@@ -125,6 +125,11 @@ import {
   parseReadEraBackup,
 } from '@/utils/readera';
 import { convertReadEraDocToBookNotes } from '@/services/annotation/providers/readera';
+import AskComposer from '@/components/ask/AskComposer';
+import { runAskForNote } from '@/services/ai/ask/runAskForNote';
+import { completeWithAntigravity } from '@/services/ai/ask/antigravityClient';
+import { tauriRunCommand } from '@/services/ai/ask/runCommand';
+import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
 
 const ZERO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 
@@ -207,6 +212,10 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     annotationId: string;
     placeholderIds: string[];
   } | null>(null);
+  const [showAskComposer, setShowAskComposer] = useState(false);
+  const [askSelectionText, setAskSelectionText] = useState('');
+  const [askSelectionCfi, setAskSelectionCfi] = useState<string | undefined>();
+  const askInFlightRef = useRef(false);
   const [annotationNotes, setAnnotationNotes] = useState<BookNote[]>([]);
   const [editingAnnotation, setEditingAnnotation] = useState<BookNote | null>(null);
   const [externalDragPoint, setExternalDragPoint] = useState<Point | null>(null);
@@ -1727,6 +1736,89 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     handleDismissPopupAndSelection();
   };
 
+  const handleAsk = () => {
+    if (!selection?.text) return;
+    if (selection.popup && !selection.cfi) return;
+    if (askInFlightRef.current) {
+      eventDispatcher.dispatch('toast', {
+        type: 'info',
+        message: _('Ask already in progress'),
+        timeout: 2000,
+      });
+      return;
+    }
+    setShowAnnotPopup(false);
+    void suppressNativeSelectionHandles();
+    setAskSelectionText(selection.text);
+    setAskSelectionCfi(
+      selection.cfi ||
+        (selection.popup ? undefined : view?.getCFI(selection.index, selection.range)),
+    );
+    setShowAskComposer(true);
+  };
+
+  const handleAskComposerSubmit = (question: string) => {
+    if (!selection?.text) return;
+    if (askInFlightRef.current) {
+      eventDispatcher.dispatch('toast', {
+        type: 'info',
+        message: _('Ask already in progress'),
+        timeout: 2000,
+      });
+      return;
+    }
+    askInFlightRef.current = true;
+
+    const bookHash = bookKey.split('-')[0]!;
+    const bookTitle = bookData.book?.title || '';
+    const selectionText = askSelectionText || selection.text;
+    const selectionCfi = askSelectionCfi;
+
+    // Capture href like Annotate before highlight.
+    if (!selection.popup) {
+      selection.href = progress.sectionHref;
+    }
+
+    setShowAskComposer(false);
+
+    void (async () => {
+      try {
+        const ai = settings.aiSettings ?? DEFAULT_AI_SETTINGS;
+        await runAskForNote(
+          {
+            bookHash,
+            bookTitle,
+            selectionText,
+            selectionCfi,
+            question,
+          },
+          {
+            askDeps: {
+              complete: completeWithAntigravity,
+              runCommand: tauriRunCommand,
+              agyPath: ai.agyPath || DEFAULT_AI_SETTINGS.agyPath,
+            },
+            ensureHighlight: () => {
+              const created = handleHighlight(true);
+              return (
+                created[0] ??
+                getConfig(bookKey)?.booknotes?.find(
+                  (a) => a.type === 'annotation' && a.cfi === selectionCfi && !a.deletedAt,
+                )
+              );
+            },
+            saveNote: (id, note) => saveBooknoteNoteText(id, note),
+            toast: (opts) => eventDispatcher.dispatch('toast', { ...opts, timeout: 2000 }),
+            t: _,
+          },
+        );
+      } finally {
+        askInFlightRef.current = false;
+        handleDismissPopupAndSelection();
+      }
+    })();
+  };
+
   // The pencil on a note bubble edits that note in the same editor the Annotate
   // action opens, so a note reads and edits the same way wherever it is opened
   // from. No placeholder to take back: the annotation already existed.
@@ -2509,6 +2601,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           onClick: handleAnnotate,
           disabled: popupSelectionNoCfi,
         };
+      case 'ask':
+        return {
+          tooltipText: _(label),
+          Icon,
+          onClick: handleAsk,
+          disabled: popupSelectionNoCfi,
+        };
       case 'find-echoes':
         return {
           tooltipText: _(label),
@@ -2589,7 +2688,11 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   // toolbar: hide them while any of those is open, and let them come back with
   // the toolbar (or go with the dismiss).
   const overlaySurfaceOpen =
-    showDictionaryPopup || showDeepLPopup || showProofreadPopup || !!noteEditorTarget;
+    showDictionaryPopup ||
+    showDeepLPopup ||
+    showProofreadPopup ||
+    !!noteEditorTarget ||
+    showAskComposer;
 
   // Below `sm` (or short landscape) the note editor is a bottom sheet rather
   // than a popup pinned to the selection: an anchored editor would sit under
@@ -2790,6 +2893,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           />
         </ModalPortal>
       )}
+      <AskComposer
+        open={showAskComposer}
+        selectionText={askSelectionText}
+        bookTitle={bookData.book?.title || ''}
+        onClose={() => setShowAskComposer(false)}
+        onSubmit={handleAskComposerSubmit}
+      />
       {importingAnnotations && (
         <div
           data-capture-blocking-overlay='true'
