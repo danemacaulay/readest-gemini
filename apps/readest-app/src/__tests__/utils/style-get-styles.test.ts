@@ -704,6 +704,23 @@ describe('getColorStyles branches (via getStyles)', () => {
     expect(css).toMatch(/body\.theme-dark\s*\{\s*background-color: transparent !important;/);
   });
 
+  it('paints html with the theme bg when there is no texture so dark-mode gutters are not white', () => {
+    const vs = makeViewSettings({ overrideColor: false, backgroundTextureId: 'none' });
+    const theme = makeThemeCode({ isDarkMode: true, bg: '#1a1a1a', fg: '#e0e0e0' });
+    const css = getStyles(vs, theme);
+    expect(css).toMatch(/html\s*\{\s*background-color:\s*#1a1a1a\s*;/);
+    // The dead has-background shorthand used to clear this to `none`.
+    expect(css).not.toContain('background: var(--background-set, none)');
+    expect(css).not.toContain('html[has-background]');
+  });
+
+  it('keeps html transparent when a host background texture is active (#4446)', () => {
+    const vs = makeViewSettings({ overrideColor: false, backgroundTextureId: 'leaves' });
+    const theme = makeThemeCode({ isDarkMode: true, bg: '#1a1a1a', fg: '#e0e0e0' });
+    const css = getStyles(vs, theme);
+    expect(css).toMatch(/html\s*\{\s*background-color:\s*transparent\s*;/);
+  });
+
   it('does not add inline white background overrides in light mode', () => {
     const vs = makeViewSettings({ overrideColor: false });
     const theme = makeThemeCode({ isDarkMode: false });

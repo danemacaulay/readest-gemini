@@ -334,12 +334,15 @@ const getColorStyles = (
       color: ${fg};
     }
     ${isEink ? getEinkSelectionStyles() : isDarkMode ? getDarkSelectionStyles(primary) : ''}
-    html[has-background], body[has-background] {
-      --background-set: var(--theme-bg-color);
-    }
+    /* Page fill lives on html when there is no host texture. A previous
+       background shorthand always resolved to none (has-background is never
+       set), which cleared background-color and left the iframe default white
+       canvas showing through — fine in light mode, unreadable in dark mode
+       (light fg on white gutters). With a texture, keep html transparent so
+       the host .foliate-viewer::before can show (#4446); body.theme-dark stays
+       transparent either way. */
     html {
-      background-color: var(--theme-bg-color, transparent);
-      background: var(--background-set, none);
+      background-color: ${hasBackgroundTexture ? 'transparent' : bg};
     }
     body {
       ${isEink ? `background-color: ${bg} !important;` : ''}
