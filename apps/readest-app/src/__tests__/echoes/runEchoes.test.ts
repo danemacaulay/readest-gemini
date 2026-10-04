@@ -120,6 +120,7 @@ describe('runEchoes', () => {
     expect(trail.status).toBe('promoted');
     expect(trail.noteId).toBe(annotationId);
     expect(trail.seed.annotationId).toBe(annotationId);
+    expect(trail.seed).not.toHaveProperty('annotationIsNew');
     expect(trail.synthesis).toContain('Comparative take');
     expect(trail.sources[0]?.bookId).toBe('42');
     expect(trail.agyConversationId).toBe('agy-1');

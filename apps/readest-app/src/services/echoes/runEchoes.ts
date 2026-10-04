@@ -201,9 +201,12 @@ export async function runEchoes(
     timeoutMs: 10 * 60 * 1000,
   });
 
+  // annotationIsNew is UI-only (placeholder rollback); do not persist in echoes.json.
+  const { annotationIsNew: _annotationIsNew, ...persistSeed } = seed;
+
   return deps.store.upsert({
     status: 'promoted',
-    seed,
+    seed: persistSeed,
     noteId: seed.annotationId,
     synthesis: text,
     sources: toEchoSources(sources, retrieved.passages),
