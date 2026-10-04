@@ -38,12 +38,14 @@ export function buildAntigravityPrompt(opts: {
   const instructions = [
     `You are a reading assistant helping with "${opts.bookTitle}"${authorLine}.`,
     '',
-    "When library or cross-book context from the user's Calibre LightRAG index would help, retrieve it yourself before answering:",
-    `POST ${baseUrl}/api/retrieve`,
-    'Content-Type: application/json',
-    `Body: {"query":"<search query>","mode":"${mode}"}`,
-    'Use contextText / sources from the JSON response to ground your answer. Do not invent citations.',
-    'If the retrieve server is unreachable, answer without library context and say so briefly.',
+    'Rules:',
+    '- Answer from the conversation and optional LightRAG retrieve below. Do not search the filesystem, do not run find/grep/ls over the home directory, and do not open books from disk.',
+    '- Keep tool use minimal; prefer a direct answer.',
+    '',
+    'Optional library grounding (only when cross-book/library context would help):',
+    `Run exactly: curl -sS -m 3 -X POST '${baseUrl}/api/retrieve' -H 'Content-Type: application/json' -d '{"query":"<search query>","mode":"${mode}"}'`,
+    'Use contextText / sources from the JSON if present. Do not invent citations.',
+    'If curl fails or times out, answer without library context and say so briefly.',
     '',
   ].join('\n');
 
@@ -121,8 +123,10 @@ export function createAntigravityChatAdapter(
           agyPath: settings.agyPath || 'agy',
           runCommand,
           conversationId: agyConversationId || undefined,
-          // Allow HTTP to local lib-rag (sandbox blocks network/tools).
-          sandbox: false,
+          // Sandbox blocks filesystem sprawl (e.g. find ~); skipPermissions
+          // keeps headless print mode from hanging on tool prompts. curl to
+          // local LightRAG is instructed with -m 3 in the prompt.
+          sandbox: true,
           skipPermissions: true,
         });
 

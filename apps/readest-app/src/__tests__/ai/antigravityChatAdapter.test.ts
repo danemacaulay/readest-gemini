@@ -55,8 +55,9 @@ describe('buildAntigravityPrompt', () => {
       messages: [{ role: 'user', content: 'Who is Paul?' }],
       resumeConversation: false,
     });
-    expect(prompt).toContain('POST http://127.0.0.1:8765/api/retrieve');
+    expect(prompt).toContain("curl -sS -m 3 -X POST 'http://127.0.0.1:8765/api/retrieve'");
     expect(prompt).toContain('"mode":"hybrid"');
+    expect(prompt).toContain('Do not search the filesystem');
     expect(prompt).toContain('Dune');
     expect(prompt).toContain('Who is Paul?');
   });
@@ -115,9 +116,10 @@ describe('createAntigravityChatAdapter', () => {
 
     const chunks = await drain(adapter.run(makeRunOpts([textMessage('user', 'Hi')])));
 
-    expect(seenPrompt).toContain('POST http://127.0.0.1:8765/api/retrieve');
+    expect(seenPrompt).toContain("curl -sS -m 3 -X POST 'http://127.0.0.1:8765/api/retrieve'");
+    expect(seenPrompt).toContain('Do not search the filesystem');
     expect(seenArgs).toContain('--dangerously-skip-permissions');
-    expect(seenArgs).not.toContain('--sandbox');
+    expect(seenArgs).toContain('--sandbox');
     expect(onAgyConversationId).toHaveBeenCalledWith('agy-1');
     expect(chunks.at(-1)?.content?.[0]?.text).toBe('Hello');
     expect(chunks.at(-1)?.status?.type).toBe('complete');
