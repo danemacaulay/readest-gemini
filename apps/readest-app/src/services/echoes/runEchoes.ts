@@ -158,7 +158,10 @@ export function buildContinueEchoChatPayload(trail: EchoTrail): ContinueEchoChat
 
 /**
  * Retrieve from LightRAG, synthesize a comparative take via agy (sandbox on),
- * and upsert a draft EchoTrail.
+ * and upsert a durable promoted EchoTrail linked to the seed annotation.
+ *
+ * Does not call promote()/createEchoBookNoteStub — the highlight already exists
+ * from Find Echoes; Task 4 writes the note body in the panel.
  */
 export async function runEchoes(
   seed: EchoTrailSeed,
@@ -199,8 +202,9 @@ export async function runEchoes(
   });
 
   return deps.store.upsert({
-    status: 'draft',
+    status: 'promoted',
     seed,
+    noteId: seed.annotationId,
     synthesis: text,
     sources: toEchoSources(sources, retrieved.passages),
     books: retrieved.books?.map((b) => ({

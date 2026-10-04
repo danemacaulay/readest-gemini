@@ -4,6 +4,11 @@ vi.mock('@/services/ai/utils/httpFetch', () => ({
   getAIFetch: () => globalThis.fetch.bind(globalThis),
 }));
 
+const createEchoBookNoteStub = vi.fn();
+vi.mock('@/services/echoes/createEchoStub', () => ({
+  createEchoBookNoteStub: (...args: unknown[]) => createEchoBookNoteStub(...args),
+}));
+
 import { createMemoryEchoStore } from '@/services/echoes/echoStore';
 import { buildEchoesPrompt } from '@/services/echoes/promptBuilder';
 import {
@@ -63,7 +68,8 @@ describe('buildEchoesPrompt', () => {
 });
 
 describe('runEchoes', () => {
-  it('retrieves, completes with sandbox, and upserts a draft trail', async () => {
+  it('retrieves, completes with sandbox, and upserts a promoted trail with annotationId', async () => {
+    createEchoBookNoteStub.mockClear();
     const store = createMemoryEchoStore();
     const retrieve = vi.fn(async () => ({
       sources: [
@@ -82,6 +88,7 @@ describe('runEchoes', () => {
       return { text: 'Comparative take citing [s1].', conversationId: 'agy-1' };
     });
     const runCommand = vi.fn();
+    const annotationId = 'anno-echo-1';
 
     const trail = await runEchoes(
       {
@@ -90,6 +97,8 @@ describe('runEchoes', () => {
         seedText: 'The impediment…',
         cfi: 'epubcfi(/6/2)',
         question: 'Where else?',
+        annotationId,
+        annotationIsNew: true,
       },
       {
         lightragBaseUrl: 'http://127.0.0.1:8765',
@@ -108,11 +117,39 @@ describe('runEchoes', () => {
       }),
     );
     expect(complete).toHaveBeenCalled();
-    expect(trail.status).toBe('draft');
+    expect(trail.status).toBe('promoted');
+    expect(trail.noteId).toBe(annotationId);
+    expect(trail.seed.annotationId).toBe(annotationId);
     expect(trail.synthesis).toContain('Comparative take');
     expect(trail.sources[0]?.bookId).toBe('42');
     expect(trail.agyConversationId).toBe('agy-1');
+    expect(createEchoBookNoteStub).not.toHaveBeenCalled();
     expect(await store.get(trail.id)).toEqual(trail);
+  });
+
+  it('upserts promoted without noteId when annotationId is missing', async () => {
+    createEchoBookNoteStub.mockClear();
+    const store = createMemoryEchoStore();
+    const retrieve = vi.fn(async () => ({ sources: [], contextText: '' }));
+    const complete = vi.fn(async () => ({ text: 'Take.', conversationId: 'agy-2' }));
+
+    const trail = await runEchoes(
+      {
+        bookHash: 'hash-1',
+        bookTitle: 'Meditations',
+        seedText: 'The impediment…',
+      },
+      {
+        lightragBaseUrl: 'http://127.0.0.1:8765',
+        lightragMode: 'hybrid',
+        agyPath: 'agy',
+      },
+      { retrieve, complete: complete as any, runCommand: vi.fn(), store },
+    );
+
+    expect(trail.status).toBe('promoted');
+    expect(trail.noteId).toBeUndefined();
+    expect(createEchoBookNoteStub).not.toHaveBeenCalled();
   });
 });
 
