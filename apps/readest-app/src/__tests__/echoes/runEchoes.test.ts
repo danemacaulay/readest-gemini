@@ -1,4 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/services/ai/utils/httpFetch', () => ({
+  getAIFetch: () => globalThis.fetch.bind(globalThis),
+}));
+
 import { createMemoryEchoStore } from '@/services/echoes/echoStore';
 import { buildEchoesPrompt } from '@/services/echoes/promptBuilder';
 import {
@@ -28,7 +33,7 @@ describe('buildEchoesPrompt', () => {
 
     expect(truncatedSelection).toBe(false);
     expect(truncatedLibrary).toBe(false);
-    expect(prompt).toContain('Use ONLY the library context');
+    expect(prompt).toContain('Use ONLY the library pack');
     expect(prompt).toContain('Do not invent books');
     expect(prompt).toContain('150–350');
     expect(prompt).toContain('[s1]');
@@ -36,6 +41,24 @@ describe('buildEchoesPrompt', () => {
     expect(prompt).toContain('The impediment to action advances action.');
     expect(prompt).toContain('Where else is obstacle-as-path?');
     expect(prompt).toContain('ctx about obstacles');
+  });
+
+  it('keeps long synthesis packs without the 8k Ask clamp', () => {
+    const fat = 'x'.repeat(20_000);
+    const { prompt, truncatedLibrary } = buildEchoesPrompt({
+      sources: [],
+      synthesisContext: fat,
+      passages: [
+        {
+          id: 's1',
+          bookTitle: 'Meditations',
+          content: 'The obstacle is the way. '.repeat(50),
+        },
+      ],
+    });
+    expect(truncatedLibrary).toBe(false);
+    expect(prompt.length).toBeGreaterThan(15_000);
+    expect(prompt).toContain('The obstacle is the way.');
   });
 });
 
@@ -81,6 +104,7 @@ describe('runEchoes', () => {
         query: 'Where else?',
         selection: 'The impediment…',
         mode: 'hybrid',
+        profile: 'echoes',
       }),
     );
     expect(complete).toHaveBeenCalled();

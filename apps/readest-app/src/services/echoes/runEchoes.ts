@@ -111,6 +111,7 @@ export async function runEchoes(
     query: retrieveQuery(seed),
     selection: seed.seedText,
     mode: aiSettings.lightragMode,
+    profile: 'echoes',
   });
 
   const sources = retrieved.sources ?? [];
@@ -120,6 +121,10 @@ export async function runEchoes(
     question: seed.question,
     sources,
     contextText: retrieved.contextText,
+    synthesisContext: retrieved.synthesisContext,
+    passages: retrieved.passages,
+    ideas: retrieved.ideas,
+    connections: retrieved.connections,
   });
 
   const { text, conversationId } = await complete(built.prompt, {
@@ -127,6 +132,8 @@ export async function runEchoes(
     runCommand: deps.runCommand,
     sandbox: true,
     abortSignal: deps.abortSignal,
+    // Rich multi-call packs can be large; give agy more wall time.
+    timeoutMs: 10 * 60 * 1000,
   });
 
   return deps.store.upsert({
@@ -134,6 +141,24 @@ export async function runEchoes(
     seed,
     synthesis: text,
     sources: toEchoSources(sources),
+    books: retrieved.books?.map((b) => ({
+      bookId: b.bookId,
+      bookTitle: b.bookTitle,
+      referenceId: b.referenceId,
+      passageCount: b.passageCount,
+    })),
+    ideas: retrieved.ideas?.map((i) => ({
+      id: i.id,
+      name: i.name,
+      type: i.type,
+      description: i.description,
+    })),
+    connections: retrieved.connections?.map((c) => ({
+      id: c.id,
+      from: c.from,
+      to: c.to,
+      description: c.description,
+    })),
     agyConversationId: conversationId,
   });
 }
