@@ -22,6 +22,12 @@ export class AntigravityExitError extends Error {
     this.name = 'AntigravityExitError';
   }
 }
+export class AntigravityEmptyResponseError extends Error {
+  constructor() {
+    super('agy returned no answer. Try asking again without needing external tools.');
+    this.name = 'AntigravityEmptyResponseError';
+  }
+}
 
 export type RunCommandResult = { code: number; stdout: string; stderr: string };
 export type RunCommandOpts = { timeoutMs: number; signal?: AbortSignal };
@@ -32,6 +38,20 @@ export type RunCommand = (
 ) => Promise<RunCommandResult>;
 
 export type AgyParsedOutput = { text: string; conversationId?: string };
+
+function looksLikeAgyStreamJson(stdout: string): boolean {
+  const first = stdout
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find(Boolean);
+  if (!first?.startsWith('{')) return false;
+  try {
+    const evt = JSON.parse(first) as { event?: string };
+    return typeof evt.event === 'string';
+  } catch {
+    return false;
+  }
+}
 
 export function extractAnswerFromAgyOutput(stdout: string): AgyParsedOutput {
   const lines = stdout
@@ -53,7 +73,11 @@ export function extractAnswerFromAgyOutput(stdout: string): AgyParsedOutput {
       if (evt.conversation_id) conversationId = evt.conversation_id;
       if (evt.event === 'result' && evt.result) {
         if (evt.result.conversation_id) conversationId = evt.result.conversation_id;
-        if (typeof evt.result.response === 'string') text = evt.result.response.trim();
+        // Empty string means "no answer" — do not treat it as a successful extract,
+        // or we skip text_delta fallback and (historically) dumped raw NDJSON.
+        if (typeof evt.result.response === 'string' && evt.result.response.trim()) {
+          text = evt.result.response.trim();
+        }
       }
       if (evt.step_update?.step_type === 'agent_response' && evt.step_update.text_delta) {
         lastAssistant += evt.step_update.text_delta;
@@ -64,6 +88,10 @@ export function extractAnswerFromAgyOutput(stdout: string): AgyParsedOutput {
   }
   if (text) return { text, conversationId };
   if (lastAssistant.trim()) return { text: lastAssistant.trim(), conversationId };
+  // Never persist stream-json telemetry as the user-visible answer.
+  if (looksLikeAgyStreamJson(stdout)) {
+    return { text: '', conversationId };
+  }
   return { text: stdout.trim(), conversationId };
 }
 
@@ -115,5 +143,9 @@ export async function completeWithAntigravity(
   if (result.code !== 0) {
     throw new AntigravityExitError(result.code, result.stderr || result.stdout);
   }
-  return extractAnswerFromAgyOutput(result.stdout);
+  const parsed = extractAnswerFromAgyOutput(result.stdout);
+  if (!parsed.text.trim()) {
+    throw new AntigravityEmptyResponseError();
+  }
+  return parsed;
 }

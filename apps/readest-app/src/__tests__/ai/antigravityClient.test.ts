@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { extractAnswerFromAgyOutput } from '../../services/ai/ask/antigravityClient';
+import {
+  AntigravityEmptyResponseError,
+  extractAnswerFromAgyOutput,
+} from '../../services/ai/ask/antigravityClient';
 
 describe('extractAnswerFromAgyOutput', () => {
   it('returns plain text when output is not JSON', () => {
@@ -16,6 +19,30 @@ describe('extractAnswerFromAgyOutput', () => {
     ].join('\n');
     expect(extractAnswerFromAgyOutput(stdout)).toEqual({
       text: 'Final answer',
+      conversationId: 'c1',
+    });
+  });
+
+  it('uses agent_response text_delta when result.response is empty', () => {
+    const stdout = [
+      '{"event":"init","conversation_id":"c1"}',
+      '{"event":"step_update","step_update":{"step_type":"agent_response","state":"DONE","text_delta":"From deltas"}}',
+      '{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":""}}',
+    ].join('\n');
+    expect(extractAnswerFromAgyOutput(stdout)).toEqual({
+      text: 'From deltas',
+      conversationId: 'c1',
+    });
+  });
+
+  it('does not fall back to raw stream-json when there is no answer text', () => {
+    const stdout = [
+      '{"event":"init","conversation_id":"c1"}',
+      '{"event":"step_update","step_update":{"step_type":"tool","tool_name":"run_command","state":"ERROR"}}',
+      '{"event":"result","result":{"conversation_id":"c1","status":"SUCCESS","response":""}}',
+    ].join('\n');
+    expect(extractAnswerFromAgyOutput(stdout)).toEqual({
+      text: '',
       conversationId: 'c1',
     });
   });
@@ -63,6 +90,23 @@ describe('completeWithAntigravity', () => {
     });
     expect(seenArgs).not.toContain('--sandbox');
     expect(seenArgs).toContain('--dangerously-skip-permissions');
+  });
+
+  it('throws when stream-json succeeds with an empty answer', async () => {
+    const { completeWithAntigravity } = await import('../../services/ai/ask/antigravityClient');
+    await expect(
+      completeWithAntigravity('Q', {
+        agyPath: 'agy',
+        runCommand: async () => ({
+          code: 0,
+          stdout: [
+            '{"event":"init","conversation_id":"c1"}',
+            '{"event":"result","result":{"status":"SUCCESS","response":""}}',
+          ].join('\n'),
+          stderr: '',
+        }),
+      }),
+    ).rejects.toBeInstanceOf(AntigravityEmptyResponseError);
   });
 
   it('forwards abortSignal to runCommand opts', async () => {

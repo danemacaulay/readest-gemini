@@ -17,6 +17,10 @@ export async function runAsk(req: AskRequest, deps: AskDeps): Promise<AskResult>
   const { text } = await deps.complete(built.prompt, {
     agyPath: deps.agyPath,
     runCommand: deps.runCommand!,
+    // Keep sandbox; do not skip permissions — Ask answers from the passage
+    // and must not roam the filesystem when tools are offered.
+    sandbox: true,
+    skipPermissions: false,
   });
   return {
     answer: text.trim(),

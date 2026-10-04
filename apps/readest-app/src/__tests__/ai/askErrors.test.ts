@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AntigravityAuthError,
+  AntigravityEmptyResponseError,
   AntigravityNotFoundError,
   AntigravityTimeoutError,
 } from '../../services/ai/ask/antigravityClient';
@@ -13,6 +14,7 @@ describe('mapAskError', () => {
     );
     expect(mapAskError(new AntigravityAuthError()).message).toContain('not authenticated');
     expect(mapAskError(new AntigravityTimeoutError()).message).toContain('timed out');
+    expect(mapAskError(new AntigravityEmptyResponseError()).message).toContain('no answer');
   });
 
   it('falls back for unknown errors', () => {

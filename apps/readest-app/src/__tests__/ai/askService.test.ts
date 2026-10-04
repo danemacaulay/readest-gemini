@@ -14,6 +14,10 @@ describe('runAsk', () => {
       { complete: complete as never, agyPath: 'agy' },
     );
     expect(complete).toHaveBeenCalledOnce();
+    expect(complete).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ sandbox: true, skipPermissions: false }),
+    );
     expect(result.answer).toBe('Answer text');
     expect(result.truncatedSelection).toBe(false);
   });

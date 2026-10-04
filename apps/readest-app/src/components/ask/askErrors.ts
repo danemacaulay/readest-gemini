@@ -1,5 +1,6 @@
 import {
   AntigravityAuthError,
+  AntigravityEmptyResponseError,
   AntigravityNotFoundError,
   AntigravityTimeoutError,
 } from '@/services/ai/ask/antigravityClient';
@@ -10,7 +11,8 @@ export function mapAskError(err: unknown): AskErrorInfo {
   if (
     err instanceof AntigravityNotFoundError ||
     err instanceof AntigravityAuthError ||
-    err instanceof AntigravityTimeoutError
+    err instanceof AntigravityTimeoutError ||
+    err instanceof AntigravityEmptyResponseError
   ) {
     return { message: err.message };
   }

@@ -34,4 +34,16 @@ describe('buildAskPrompt', () => {
     expect(result.prompt).not.toContain('Library context');
     expect('truncatedLibrary' in result).toBe(false);
   });
+
+  it('instructs the model to answer from the passage without tools', () => {
+    const result = buildAskPrompt({
+      bookTitle: 'B',
+      selectionText: 'sel',
+      question: 'Q',
+    });
+    expect(result.prompt.toLowerCase()).toMatch(/do not (use |run )?tools|without tools|no tools/);
+    expect(result.prompt.toLowerCase()).toMatch(
+      /selected passage|passage only|from the (selected )?passage/,
+    );
+  });
 });
