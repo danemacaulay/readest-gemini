@@ -58,12 +58,14 @@ const BooknoteView: React.FC<{
   const { getConfig } = useBookDataStore();
   const { getProgress } = useReaderStore();
   const { setNotebookVisible, setNotebookActiveTab } = useNotebookStore();
+  const activeEchoId = useEchoesUiStore((s) => s.activeEchoId);
   const setActiveEchoId = useEchoesUiStore((s) => s.setActiveEchoId);
   const { setActiveBooknoteType, setBooknoteResults, isSearchBarVisible, setSearchBarVisible } =
     useSidebarStore();
   const config = getConfig(bookKey)!;
   const progress = getProgress(bookKey);
   const allNotes = config.booknotes ?? [];
+  const bookHash = bookKey.split('-')[0]!;
 
   const [filterKind, setFilterKind] = useState<AnnotationFilterKind>('all');
   const [searchInput, setSearchInput] = useState('');
@@ -73,6 +75,8 @@ const BooknoteView: React.FC<{
   // One store.list() for the whole sidebar — noteId → trailId for annotation rows.
   const [noteIdToTrailId, setNoteIdToTrailId] = useState<Record<string, string>>({});
 
+  // Re-list when a trail lands in-session (activeEchoId) so annotation rows
+  // pick up linkedTrailId without waiting for a remount.
   useEffect(() => {
     if (type !== 'annotation' || !appService) {
       setNoteIdToTrailId({});
@@ -86,6 +90,7 @@ const BooknoteView: React.FC<{
         if (cancelled) return;
         const map: Record<string, string> = {};
         for (const trail of trails) {
+          if (trail.seed.bookHash !== bookHash) continue;
           const noteId = trail.noteId ?? trail.seed.annotationId;
           if (noteId) map[noteId] = trail.id;
         }
@@ -97,7 +102,7 @@ const BooknoteView: React.FC<{
     return () => {
       cancelled = true;
     };
-  }, [appService, type]);
+  }, [appService, type, bookHash, activeEchoId]);
 
   // Debounce the query the same 300 ms the Notebook SearchBar uses, so
   // typing doesn't regroup/re-sort hundreds of notes per keystroke.

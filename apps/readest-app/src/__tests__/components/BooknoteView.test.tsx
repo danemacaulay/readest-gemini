@@ -1,7 +1,8 @@
-import { render, act, cleanup } from '@testing-library/react';
+import { render, act, cleanup, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { BookNote } from '@/types/book';
+import type { EchoTrail } from '@/services/echoes/types';
 
 // ---------- Shared mutable test state (captured by the mock factories) ----------
 let scrollToIndexSpy: Mock<(arg: unknown) => void>;
@@ -20,6 +21,9 @@ let mockBooknotes: BookNote[];
 // The scroller element the Virtuoso stub hands BooknoteView, so tests can place
 // rendered rows (data-index) inside it and control what is visible.
 let mockScroller: HTMLElement;
+let mockEchoTrails: EchoTrail[];
+let capturedLinkedTrailIds: Record<string, string | null>;
+let mockAppService: { fs: object } | null;
 
 // ---------- Mocks ----------
 // Production code uses per-field selectors; mock must apply them.
@@ -48,11 +52,11 @@ vi.mock('@/store/sidebarStore', () => ({
 }));
 
 vi.mock('@/context/EnvContext', () => ({
-  useEnv: () => ({ appService: null }),
+  useEnv: () => ({ appService: mockAppService }),
 }));
 
 vi.mock('@/services/echoes/echoStore', () => ({
-  getPersistentEchoStore: () => ({ list: async () => [] }),
+  getPersistentEchoStore: () => ({ list: async () => mockEchoTrails }),
 }));
 
 vi.mock('@/services/ai/fileSystemFromAppService', () => ({
@@ -78,7 +82,10 @@ vi.mock('@/utils/event', () => ({
 }));
 
 vi.mock('@/app/reader/components/sidebar/BooknoteItem', () => ({
-  default: () => null,
+  default: (props: { item: BookNote; linkedTrailId?: string | null }) => {
+    capturedLinkedTrailIds[props.item.id] = props.linkedTrailId ?? null;
+    return null;
+  },
 }));
 
 vi.mock('@/app/reader/components/EmptyState', () => ({
@@ -92,7 +99,11 @@ vi.mock('react-virtuoso', async () => {
   return {
     Virtuoso: ReactMod.forwardRef(
       (
-        props: { scrollerRef?: (el: HTMLElement | Window | null) => void },
+        props: {
+          scrollerRef?: (el: HTMLElement | Window | null) => void;
+          totalCount?: number;
+          itemContent?: (index: number) => React.ReactNode;
+        },
         ref: React.Ref<unknown>,
       ) => {
         capturedVirtuosoProps = props as Record<string, unknown>;
@@ -102,6 +113,16 @@ vi.mock('react-virtuoso', async () => {
         ReactMod.useEffect(() => {
           props.scrollerRef?.(mockScroller);
         }, []);
+        const total = props.totalCount ?? 0;
+        if (total > 0 && props.itemContent) {
+          return (
+            <>
+              {Array.from({ length: total }, (_, index) => (
+                <ReactMod.Fragment key={index}>{props.itemContent?.(index)}</ReactMod.Fragment>
+              ))}
+            </>
+          );
+        }
         return null;
       },
     ),
@@ -121,6 +142,8 @@ vi.mock('overlayscrollbars-react', () => ({
 
 // eslint-disable-next-line import/first
 import BooknoteView from '@/app/reader/components/sidebar/BooknoteView';
+// eslint-disable-next-line import/first
+import { useEchoesUiStore } from '@/store/echoesUiStore';
 
 const makeNote = (cfi: string): BookNote =>
   ({
@@ -145,6 +168,9 @@ beforeEach(() => {
   capturedVirtuosoProps = undefined;
   mockProgress = null;
   mockScroller = document.createElement('div');
+  mockEchoTrails = [];
+  capturedLinkedTrailIds = {};
+  mockAppService = null;
   mockBooknotes = [
     makeNote('epubcfi(/6/4!/4/2:0)'),
     makeNote('epubcfi(/6/6!/4/4:0)'),
@@ -152,6 +178,13 @@ beforeEach(() => {
     makeNote('epubcfi(/6/10!/4/6:0)'),
     makeNote('epubcfi(/6/26!/4/2:0)'),
   ];
+  useEchoesUiStore.setState({
+    activeEchoId: null,
+    pendingSeed: null,
+    isRunning: false,
+    error: null,
+    runToken: 0,
+  });
   // Run rAF synchronously so the callback's scroll happens inside act().
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
     cb(0);
@@ -292,5 +325,52 @@ describe('BooknoteView — OverlayScrollbars init does not rewind the list to th
       rerender(<BooknoteView type='annotation' bookKey='book1' toc={[]} />);
     });
     expect(scrollToIndexSpy).toHaveBeenCalledWith(expect.objectContaining({ index: 7 }));
+  });
+});
+
+describe('BooknoteView — noteId→trailId index refreshes when trails land', () => {
+  it('re-lists and scopes linkedTrailId to the open book when activeEchoId updates', async () => {
+    mockAppService = { fs: {} };
+    const note = makeNote('epubcfi(/6/4!/4/2:0)');
+    note.id = 'anno-1';
+    mockBooknotes = [note];
+    mockEchoTrails = [];
+
+    render(<BooknoteView type='annotation' bookKey='book1' toc={[]} />);
+
+    await waitFor(() => {
+      expect(capturedLinkedTrailIds['anno-1']).toBeNull();
+    });
+
+    mockEchoTrails = [
+      {
+        id: 'trail-other',
+        status: 'promoted',
+        seed: { bookHash: 'other-book', annotationId: 'anno-1' },
+        synthesis: 'other',
+        sources: [],
+        createdAt: 1,
+        updatedAt: 1,
+        noteId: 'anno-1',
+      },
+      {
+        id: 'trail-1',
+        status: 'promoted',
+        seed: { bookHash: 'book1', annotationId: 'anno-1' },
+        synthesis: 'take',
+        sources: [],
+        createdAt: 2,
+        updatedAt: 2,
+        noteId: 'anno-1',
+      },
+    ];
+
+    act(() => {
+      useEchoesUiStore.getState().setActiveEchoId('trail-1');
+    });
+
+    await waitFor(() => {
+      expect(capturedLinkedTrailIds['anno-1']).toBe('trail-1');
+    });
   });
 });
