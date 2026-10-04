@@ -22,7 +22,13 @@ export async function runAskForNote(input: AskRequest, deps: AskForNoteDeps): Pr
   try {
     const result = await ask(input, deps.askDeps);
     const saved = await deps.saveNote(target.id, result.answer);
-    if (!saved) return false;
+    if (!saved) {
+      deps.toast({
+        type: 'error',
+        message: deps.t('Failed to save note. Please try again.'),
+      });
+      return false;
+    }
     deps.toast({
       type: 'info',
       message: deps.t('Ask answer saved as note'),

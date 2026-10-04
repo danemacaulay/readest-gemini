@@ -60,8 +60,38 @@ describe('runAskForNote', () => {
     );
   });
 
+  it('toasts error when saveNote returns false', async () => {
+    const saveNote = vi.fn(async () => false);
+    const toast = vi.fn();
+    const ok = await runAskForNote(
+      {
+        bookHash: 'h',
+        bookTitle: 'Book',
+        selectionText: 'sel',
+        question: 'Why?',
+      },
+      {
+        runAsk: vi.fn(async () => ({ answer: 'Hello', truncatedSelection: false })) as never,
+        askDeps: { complete: vi.fn() as never, agyPath: 'agy' },
+        ensureHighlight: () => ({ id: 'n1' }),
+        saveNote,
+        toast,
+        t: (k) => k,
+      },
+    );
+    expect(ok).toBe(false);
+    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello');
+    expect(toast).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Failed to save note. Please try again.',
+    });
+    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'info' }));
+  });
+
   it('aborts when highlight cannot be created', async () => {
     const runAsk = vi.fn();
+    const saveNote = vi.fn(async () => true);
+    const toast = vi.fn();
     const ok = await runAskForNote(
       {
         bookHash: 'h',
@@ -73,12 +103,17 @@ describe('runAskForNote', () => {
         runAsk: runAsk as never,
         askDeps: { complete: vi.fn() as never, agyPath: 'agy' },
         ensureHighlight: () => null,
-        saveNote: vi.fn(async () => true),
-        toast: vi.fn(),
+        saveNote,
+        toast,
         t: (k) => k,
       },
     );
     expect(ok).toBe(false);
     expect(runAsk).not.toHaveBeenCalled();
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Could not create note anchor.',
+    });
   });
 });
