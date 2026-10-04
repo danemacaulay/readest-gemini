@@ -3,11 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import Dialog from '@/components/Dialog';
 import { useTranslation } from '@/hooks/useTranslation';
-import type { AskMode } from '@/services/ai/ask/types';
 
 export type AskComposerProps = {
   open: boolean;
-  mode: AskMode;
   selectionText: string;
   bookTitle: string;
   onClose: () => void;
@@ -16,7 +14,6 @@ export type AskComposerProps = {
 
 const AskComposer: React.FC<AskComposerProps> = ({
   open,
-  mode,
   selectionText,
   bookTitle,
   onClose,
@@ -27,9 +24,9 @@ const AskComposer: React.FC<AskComposerProps> = ({
 
   useEffect(() => {
     if (open) setQuestion('');
-  }, [open, mode, selectionText]);
+  }, [open, selectionText]);
 
-  const title = mode === 'ask-with-library' ? _('Ask with library') : _('Ask');
+  const title = _('Ask');
   const preview =
     selectionText.length > 280 ? `${selectionText.slice(0, 280).trimEnd()}…` : selectionText;
 
