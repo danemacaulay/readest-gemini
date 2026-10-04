@@ -24,6 +24,8 @@ import { findLibraryBookByCalibreId } from '@/services/echoes/resolveBook';
 import type { EchoTrail } from '@/services/echoes/types';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
+import { useSaveBooknoteNoteText } from '../../hooks/useSaveBooknoteNoteText';
+import { removeEmptyAnnotationPlaceholder } from '../../utils/annotatorUtil';
 import { eventDispatcher } from '@/utils/event';
 import { focusExistingReaderWindow, navigateToReader } from '@/utils/nav';
 import { emitTo } from '@tauri-apps/api/event';
@@ -50,10 +52,11 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
   const { envConfig } = useEnv();
   const echoStore = useEchoStore();
   const { settings } = useSettingsStore();
-  const { getBookData, getConfig, updateBooknotes, saveConfig } = useBookDataStore();
+  const { getConfig, updateBooknotes, saveConfig } = useBookDataStore();
   const { library } = useLibraryStore();
   const { setNotebookActiveTab } = useNotebookStore();
   const { createConversation, addMessage, setAgyConversationId } = useAIChatStore();
+  const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
   const {
     activeEchoId,
     pendingSeed,
@@ -64,20 +67,15 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
     setPendingSeed,
     setRunning,
     setError,
-    requestEchoesRun,
-    clearEchoesUi,
   } = useEchoesUiStore();
 
   const [trail, setTrail] = useState<EchoTrail | null>(null);
-  const [composerQuestion, setComposerQuestion] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const lastRunTokenRef = useRef(0);
-  /** Prevents re-restoring after Discard clears selection for this book. */
+  /** Prevents re-restoring after selection is cleared for this book. */
   const restoredForBookRef = useRef<string | null>(null);
 
   const bookHash = bookKey.split('-')[0]!;
-  const bookData = getBookData(bookKey);
-  const bookTitle = bookData?.book?.title ?? '';
   const ai = settings.aiSettings ?? DEFAULT_AI_SETTINGS;
 
   const loadTrail = useCallback(
@@ -125,6 +123,11 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // Capture before any clear so catch/finally still have annotation ids.
+    const seed = pendingSeed;
+    const annotationId = seed.annotationId;
+    const annotationIsNew = seed.annotationIsNew;
+
     setRunning(true);
     setError(null);
     setTrail(null);
@@ -132,7 +135,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
     void (async () => {
       try {
         const next = await runEchoes(
-          pendingSeed,
+          seed,
           {
             lightragBaseUrl: ai.lightragBaseUrl || DEFAULT_AI_SETTINGS.lightragBaseUrl,
             lightragMode: ai.lightragMode || DEFAULT_AI_SETTINGS.lightragMode,
@@ -144,6 +147,11 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
             abortSignal: controller.signal,
           },
         );
+        if (controller.signal.aborted) return;
+        const noteId = next.noteId ?? annotationId;
+        if (noteId) {
+          await saveBooknoteNoteText(noteId, next.synthesis);
+        }
         if (controller.signal.aborted) return;
         setTrail(next);
         setActiveEchoId(next.id);
@@ -157,6 +165,17 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
           message: _('Could not find Echoes'),
           timeout: 4000,
         });
+        if (annotationIsNew && annotationId) {
+          const { booknotes = [] } = getConfig(bookKey) ?? {};
+          const removed = removeEmptyAnnotationPlaceholder(booknotes, annotationId, Date.now());
+          if (removed) {
+            const updatedConfig = updateBooknotes(bookKey, booknotes);
+            if (updatedConfig) {
+              const latestSettings = useSettingsStore.getState().settings;
+              await saveConfig(envConfig, bookKey, updatedConfig, latestSettings);
+            }
+          }
+        }
       } finally {
         if (!controller.signal.aborted) setRunning(false);
       }
@@ -164,68 +183,31 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
 
     return () => {
       controller.abort();
+      // React Strict Mode remounts with the same token; clear the guard so the
+      // remounted effect can start the run again.
+      if (lastRunTokenRef.current === runToken) {
+        lastRunTokenRef.current = 0;
+      }
     };
   }, [
     _,
     ai.agyPath,
     ai.lightragBaseUrl,
     ai.lightragMode,
+    bookKey,
     echoStore,
+    envConfig,
+    getConfig,
     pendingSeed,
     runToken,
+    saveBooknoteNoteText,
+    saveConfig,
     setActiveEchoId,
     setError,
     setPendingSeed,
     setRunning,
+    updateBooknotes,
   ]);
-
-  const handleComposerSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const question = composerQuestion.trim();
-    if (!question || isRunning) return;
-    requestEchoesRun({
-      bookHash,
-      bookTitle,
-      question,
-    });
-    setComposerQuestion('');
-  };
-
-  const handleSaveTrail = async () => {
-    if (!echoStore || !trail) return;
-    try {
-      const { trail: promoted, note } = await echoStore.promote(trail.id);
-      const booknotes = [...(getConfig(bookKey)?.booknotes ?? [])];
-      const idx = booknotes.findIndex((n) => n.id === note.id);
-      if (idx >= 0) booknotes[idx] = note;
-      else booknotes.push(note);
-      const updatedConfig = updateBooknotes(bookKey, booknotes);
-      if (updatedConfig) await saveConfig(envConfig, bookKey, updatedConfig, settings);
-      setTrail(promoted);
-      setActiveEchoId(promoted.id);
-      eventDispatcher.dispatch('toast', {
-        type: 'info',
-        message: _('Trail saved'),
-        timeout: 2000,
-      });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setError(message);
-    }
-  };
-
-  const handleDiscard = async () => {
-    if (!echoStore || !trail) {
-      clearEchoesUi();
-      setTrail(null);
-      return;
-    }
-    if (trail.status === 'draft') {
-      await echoStore.delete(trail.id);
-    }
-    clearEchoesUi();
-    setTrail(null);
-  };
 
   const handleContinueInChat = async () => {
     if (!trail) return;
@@ -280,30 +262,6 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
 
   return (
     <div className='flex min-h-0 flex-1 flex-col gap-3 px-3 pb-2'>
-      <form onSubmit={handleComposerSubmit} className='shrink-0'>
-        <label className='sr-only' htmlFor='echoes-composer'>
-          {_('Ask across your library')}
-        </label>
-        <div className='flex gap-2'>
-          <input
-            id='echoes-composer'
-            type='text'
-            value={composerQuestion}
-            onChange={(e) => setComposerQuestion(e.target.value)}
-            placeholder={_('Ask across your library…')}
-            disabled={isRunning}
-            className='eink-bordered border-base-300 bg-base-100 focus:border-base-content/40 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm outline-none'
-          />
-          <button
-            type='submit'
-            disabled={isRunning || !composerQuestion.trim()}
-            className='btn btn-contrast h-auto min-h-0 px-3 py-2 text-sm'
-          >
-            {_('Find')}
-          </button>
-        </div>
-      </form>
-
       {isRunning && (
         <p className='text-base-content/70 text-sm' role='status'>
           {_('Finding echoes…')}
@@ -318,7 +276,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
 
       {!trail && !isRunning && !error && (
         <div className='text-base-content/60 flex flex-1 flex-col justify-center gap-2 text-sm'>
-          <p>{_('Select a passage and choose Find Echoes, or ask a question above.')}</p>
+          <p>{_('Select a passage and choose Find Echoes.')}</p>
           <p className='text-xs opacity-80'>
             {_('Echoes compares ideas across your indexed library — not a chat thread.')}
           </p>
@@ -332,22 +290,6 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
               {trail.status === 'promoted' ? _('Saved trail') : _('Draft')}
             </span>
           </div>
-
-          {(trail.seed.seedText || trail.seed.question) && (
-            <section aria-labelledby='echoes-seed-heading'>
-              <h2 id='echoes-seed-heading' className='mb-1 text-xs font-medium opacity-70'>
-                {_('Seed')}
-              </h2>
-              {trail.seed.question && (
-                <p className='mb-1 text-sm font-medium'>{trail.seed.question}</p>
-              )}
-              {trail.seed.seedText && (
-                <blockquote className='border-base-content/20 border-s-2 ps-3 text-sm italic opacity-90'>
-                  {trail.seed.seedText}
-                </blockquote>
-              )}
-            </section>
-          )}
 
           <section aria-labelledby='echoes-synthesis-heading'>
             <h2 id='echoes-synthesis-heading' className='mb-1 text-xs font-medium opacity-70'>
@@ -396,15 +338,6 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
           </section>
 
           <div className='mt-auto flex flex-wrap justify-end gap-2 pt-1' dir='ltr'>
-            {trail.status === 'draft' && (
-              <button
-                type='button'
-                className='eink-bordered btn btn-ghost h-8 min-h-8 px-3'
-                onClick={() => void handleDiscard()}
-              >
-                {_('Discard')}
-              </button>
-            )}
             <button
               type='button'
               className='eink-bordered btn btn-ghost h-8 min-h-8 px-3'
@@ -412,15 +345,6 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
             >
               {_('Continue in chat')}
             </button>
-            {trail.status === 'draft' && (
-              <button
-                type='button'
-                className='btn btn-contrast h-8 min-h-8 px-3'
-                onClick={() => void handleSaveTrail()}
-              >
-                {_('Save trail')}
-              </button>
-            )}
           </div>
         </div>
       )}
