@@ -7,8 +7,11 @@ import { PiMagnifyingGlass, PiNotePencil } from 'react-icons/pi';
 import { RiBookmark3Line, RiBookmarkLine } from 'react-icons/ri';
 
 import { useBookDataStore } from '@/store/bookDataStore';
+import { useEchoesUiStore } from '@/store/echoesUiStore';
+import { useNotebookStore } from '@/store/notebookStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
+import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
 import { findTocItemBS } from '@/services/nav';
 import { findNearestCfi } from '@/utils/cfi';
 import { TOCItem } from '@/libs/document';
@@ -50,6 +53,8 @@ const BooknoteView: React.FC<{
   const _ = useTranslation();
   const { getConfig } = useBookDataStore();
   const { getProgress } = useReaderStore();
+  const { setNotebookVisible, setNotebookActiveTab } = useNotebookStore();
+  const setActiveEchoId = useEchoesUiStore((s) => s.setActiveEchoId);
   const { setActiveBooknoteType, setBooknoteResults, isSearchBarVisible, setSearchBarVisible } =
     useSidebarStore();
   const config = getConfig(bookKey)!;
@@ -104,7 +109,10 @@ const BooknoteView: React.FC<{
   }, []);
 
   const liveAnnotations = useMemo(
-    () => allNotes.filter((note) => note.type === 'annotation' && !note.deletedAt),
+    () =>
+      allNotes.filter(
+        (note) => (note.type === 'annotation' || note.type === 'echo') && !note.deletedAt,
+      ),
     [allNotes],
   );
   const facets = useMemo(() => collectAnnotationFacets(liveAnnotations), [liveAnnotations]);
@@ -190,6 +198,17 @@ const BooknoteView: React.FC<{
     setActiveBooknoteType(bookKey, type);
     setBooknoteResults(bookKey, sorted);
   }, [filteredNotes, bookKey, type, setActiveBooknoteType, setBooknoteResults]);
+
+  const handleOpenEchoTrail = useCallback(
+    (note: BookNote) => {
+      const echoId = parseEchoNoteRef(note.note ?? '');
+      if (!echoId) return;
+      setActiveEchoId(echoId);
+      setNotebookVisible(true);
+      setNotebookActiveTab('echoes');
+    },
+    [setActiveEchoId, setNotebookActiveTab, setNotebookVisible],
+  );
 
   // ---- Virtualization wiring (mirrors TOCView pattern) ----
   const listHostRef = useRef<HTMLDivElement | null>(null);
@@ -361,13 +380,15 @@ const BooknoteView: React.FC<{
             bookKey={bookKey}
             item={row.item}
             isNearest={row.item.cfi === nearestCfi}
-            onClick={handleBrowseBookNotes}
-            inlineNoteEditing={type === 'annotation'}
+            onClick={
+              row.item.type === 'echo' ? () => handleOpenEchoTrail(row.item) : handleBrowseBookNotes
+            }
+            inlineNoteEditing={type === 'annotation' && row.item.type === 'annotation'}
           />
         </ul>
       );
     },
-    [flatItems, bookKey, nearestCfi, handleBrowseBookNotes, type],
+    [flatItems, bookKey, nearestCfi, handleBrowseBookNotes, handleOpenEchoTrail, type],
   );
 
   // Always mount the listHostRef host so the height-measurement effect (and

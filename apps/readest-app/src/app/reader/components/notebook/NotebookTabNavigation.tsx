@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import React from 'react';
 import { PiNotePencil, PiRobot } from 'react-icons/pi';
 
+import { EchoesIcon } from '@/components/echoes/EchoesIcon';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -21,7 +22,7 @@ const NotebookTabNavigation: React.FC<NotebookTabNavigationProps> = ({
   const { settings } = useSettingsStore();
   const aiEnabled = settings?.aiSettings?.enabled ?? false;
 
-  const tabs: NotebookTab[] = aiEnabled ? ['notes', 'ai'] : [];
+  const tabs: NotebookTab[] = aiEnabled ? ['notes', 'ai', 'echoes'] : [];
 
   if (tabs.length === 0) return null;
 
@@ -31,6 +32,8 @@ const NotebookTabNavigation: React.FC<NotebookTabNavigationProps> = ({
         return _('Notes');
       case 'ai':
         return _('AI');
+      case 'echoes':
+        return _('Echoes');
       default:
         return '';
     }
@@ -42,6 +45,8 @@ const NotebookTabNavigation: React.FC<NotebookTabNavigationProps> = ({
         return <PiNotePencil className='mx-auto' size={20} />;
       case 'ai':
         return <PiRobot className='mx-auto' size={20} />;
+      case 'echoes':
+        return <EchoesIcon className='mx-auto' size={20} />;
       default:
         return null;
     }

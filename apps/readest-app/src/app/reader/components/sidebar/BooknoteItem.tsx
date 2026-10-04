@@ -53,6 +53,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
 
   const { text, cfi, note } = item;
   const isBookmark = item.type === 'bookmark';
+  const isEcho = item.type === 'echo';
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
   const saveBookmarkText = (draftText: string) => {
     const config = getConfig(bookKey);
@@ -215,7 +216,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   }
 
   const isEditable =
-    !!item.note || isBookmark || (!!inlineNoteEditing && item.type === 'annotation');
+    !isEcho && (!!item.note || isBookmark || (!!inlineNoteEditing && item.type === 'annotation'));
   const actionButtonReveal = clsx(
     'group-focus-within:opacity-100',
     revealOnHover && 'group-hover:opacity-100',
@@ -263,15 +264,19 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
           } as React.CSSProperties
         }
       >
-        {item.note && (
-          <div
-            className='content prose prose-sm font-size-sm'
-            dir='auto'
-            dangerouslySetInnerHTML={{ __html: noteHtml }}
-          ></div>
+        {isEcho ? (
+          <div className='content font-size-sm mb-1 font-medium'>{_('Echo · Saved trail')}</div>
+        ) : (
+          item.note && (
+            <div
+              className='content prose prose-sm font-size-sm'
+              dir='auto'
+              dangerouslySetInnerHTML={{ __html: noteHtml }}
+            ></div>
+          )
         )}
         <div className='flex items-start'>
-          {item.note && (
+          {(item.note || isEcho) && (
             <div
               className='me-2 mt-2.5 min-h-full self-stretch rounded-xl bg-gray-300'
               style={{
@@ -279,11 +284,13 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
               }}
             ></div>
           )}
-          <div className={clsx('content font-size-sm line-clamp-3', item.note && 'mt-2')}>
+          <div
+            className={clsx('content font-size-sm line-clamp-3', (item.note || isEcho) && 'mt-2')}
+          >
             <span
               className={clsx(
                 'booknote-text inline leading-normal',
-                item.note && 'content font-size-xs text-base-content',
+                (item.note || isEcho) && 'content font-size-xs text-base-content',
                 (item.style === 'underline' || item.style === 'squiggly') &&
                   'underline decoration-2',
                 item.style === 'highlight' && 'rounded-[4px] px-[2px] py-[1px]',

@@ -43,6 +43,21 @@ describe('filterBooknotes', () => {
     expect(filterBooknotes(notes, { kind: 'notes', query: '' })).toEqual([noted]);
   });
 
+  it('includes promoted echo stubs alongside annotations', () => {
+    const echo = makeNote({
+      type: 'echo',
+      text: 'Virtue is excellence',
+      note: 'echo:trail-1',
+      style: undefined,
+      color: undefined,
+    });
+    expect(filterBooknotes([highlight, echo, clipping], { kind: 'all', query: '' })).toEqual([
+      highlight,
+      echo,
+    ]);
+    expect(filterBooknotes([echo], { kind: 'notes', query: '' })).toEqual([echo]);
+  });
+
   it('matches the query against highlight text, case-insensitively', () => {
     expect(filterBooknotes([highlight, noted], { kind: 'all', query: 'cheshire' })).toEqual([
       highlight,

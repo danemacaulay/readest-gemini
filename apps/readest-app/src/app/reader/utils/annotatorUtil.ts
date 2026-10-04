@@ -471,16 +471,17 @@ export interface BooknoteFilter {
 /**
  * Filter source material for the annotations hub.
  *
- * Tombstones and non-annotation records are always excluded. All includes
- * every annotation, while With notes selects annotations carrying a note body.
- * Query and facet filters compose with that kind filter.
+ * Tombstones are always excluded. Live annotations and promoted Echo stubs
+ * (`type === 'echo'`) are included. All includes every match, while With notes
+ * selects records carrying a note body. Query and facet filters compose with
+ * that kind filter.
  */
 export function filterBooknotes(notes: BookNote[], filter: BooknoteFilter): BookNote[] {
   const { kind, excludedColors, excludedStyles } = filter;
   const lowercaseQuery = filter.query.trim().toLowerCase();
   return notes.filter((note) => {
     if (note.deletedAt) return false;
-    if (note.type !== 'annotation') return false;
+    if (note.type !== 'annotation' && note.type !== 'echo') return false;
     if (kind === 'notes' && !note.note) return false;
     if (note.color && excludedColors?.includes(note.color)) return false;
     if (note.style && excludedStyles?.includes(note.style)) return false;

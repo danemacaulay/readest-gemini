@@ -30,11 +30,12 @@ describe('NotebookTabNavigation design regression', () => {
     expect(container.querySelector('.bottom-tab')).toBeNull();
   });
 
-  it('shows the Notes and AI tabs when AI is enabled', () => {
+  it('shows the Notes, AI, and Echoes tabs when AI is enabled', () => {
     h.aiEnabled = true;
     render(<NotebookTabNavigation activeTab='notes' onTabChange={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Notes' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'AI' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Echoes' })).toBeTruthy();
   });
 });

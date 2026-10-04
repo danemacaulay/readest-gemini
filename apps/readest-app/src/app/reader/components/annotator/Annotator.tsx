@@ -19,6 +19,7 @@ import { getBookProgress, useBookProgress } from '@/store/readerProgressStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useNotebookStore } from '@/store/notebookStore';
+import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 import { isSystemDictionaryEnabled } from '@/services/dictionaries/registry';
@@ -148,6 +149,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const getViewsById = useReaderStore((s) => s.getViewsById);
   const getViewSettings = useReaderStore((s) => s.getViewSettings);
   const { setNotebookVisible, setNotebookActiveTab } = useNotebookStore();
+  const requestEchoesRun = useEchoesUiStore((s) => s.requestEchoesRun);
   const { clearBooknotesNav, isSideBarVisible } = useSidebarStore();
   const { listenToNativeTouchEvents } = useDeviceControlStore();
   const { loadCustomDictionaries } = useCustomDictionaryStore();
@@ -288,7 +290,11 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   const globalToggleActive = !!currentAnnotation?.global;
   const annotPopupMaxWidth = Math.min(useResponsiveSize(300), maxWidth);
   const annotPopupToolSize = useResponsiveSize(44);
-  const toolbarToolTypes = getToolbarToolTypes(viewSettings.annotationToolbarItems, canShare);
+  const aiEnabled = settings?.aiSettings?.enabled ?? false;
+  const toolbarToolTypes = getToolbarToolTypes(
+    viewSettings.annotationToolbarItems,
+    canShare,
+  ).filter((type) => type !== 'find-echoes' || aiEnabled);
   const highlightOptionsGap = toolbarToolTypes.length <= 4 ? 4 : 8;
   // Three 30px styles, a four- or five-color pill (100px or 122px), and three gaps;
   // the global toggle adds a 30px button and a gap. Keep in sync with HighlightOptions.
@@ -1707,6 +1713,24 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     });
   };
 
+  const handleFindEchoes = () => {
+    if (!selection?.text || !aiEnabled) return;
+    if (selection.popup && !selection.cfi) return;
+    const bookHash = bookKey.split('-')[0]!;
+    const cfi =
+      selection.cfi ||
+      (selection.popup ? undefined : view?.getCFI(selection.index, selection.range));
+    requestEchoesRun({
+      bookHash,
+      bookTitle: bookData.book?.title,
+      seedText: selection.text,
+      cfi,
+    });
+    setNotebookVisible(true);
+    setNotebookActiveTab('echoes');
+    handleDismissPopupAndSelection();
+  };
+
   // The pencil on a note bubble edits that note in the same editor the Annotate
   // action opens, so a note reads and edits the same way wherever it is opened
   // from. No placeholder to take back: the annotation already existed.
@@ -2488,6 +2512,13 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
           Icon,
           onClick: handleAnnotate,
           disabled: popupSelectionNoCfi,
+        };
+      case 'find-echoes':
+        return {
+          tooltipText: _(label),
+          Icon,
+          onClick: handleFindEchoes,
+          disabled: popupSelectionNoCfi || !aiEnabled,
         };
       case 'search':
         return { tooltipText: _(label), Icon, onClick: handleSearch };
