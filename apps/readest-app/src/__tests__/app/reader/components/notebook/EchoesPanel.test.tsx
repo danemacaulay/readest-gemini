@@ -18,6 +18,9 @@ const h = vi.hoisted(() => ({
   storeGet: vi.fn(async (_id: string): Promise<EchoTrail | null> => null),
   storeList: vi.fn(async (): Promise<EchoTrail[]> => []),
   toast: vi.fn(),
+  view: { addAnnotation: vi.fn() },
+  getViewsById: vi.fn(() => [h.view]),
+  removeBookNoteOverlays: vi.fn(),
 }));
 
 const translate = (value: string) => value;
@@ -102,11 +105,28 @@ vi.mock('@/store/aiChatStore', () => ({
   }),
 }));
 
-vi.mock('@/store/readerStore', () => ({
-  useReaderStore: Object.assign(() => ({ bookKeys: [] }), {
-    getState: () => ({ bookKeys: [] }),
-  }),
-}));
+vi.mock('@/store/readerStore', () => {
+  const state = {
+    bookKeys: [] as string[],
+    getViewsById: h.getViewsById,
+  };
+  return {
+    useReaderStore: Object.assign(
+      (selector?: (value: typeof state) => unknown) => (selector ? selector(state) : state),
+      {
+        getState: () => state,
+      },
+    ),
+  };
+});
+
+vi.mock('@/app/reader/utils/annotatorUtil', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/reader/utils/annotatorUtil')>();
+  return {
+    ...actual,
+    removeBookNoteOverlays: (...args: unknown[]) => h.removeBookNoteOverlays(...args),
+  };
+});
 
 vi.mock('@/store/sidebarStore', () => ({
   useSidebarStore: Object.assign(() => ({}), {
@@ -292,6 +312,12 @@ describe('EchoesPanel', () => {
     });
     const updated = h.booknotes.find((n) => n.id === 'anno-new');
     expect(updated?.deletedAt).toBeTruthy();
+    expect(h.getViewsById).toHaveBeenCalledWith('bookhash');
+    expect(h.removeBookNoteOverlays).toHaveBeenCalledWith(
+      h.view,
+      expect.objectContaining({ id: 'anno-new', note: '' }),
+    );
+    expect(h.removeBookNoteOverlays.mock.calls[0]?.[1]).not.toHaveProperty('deletedAt');
     expect(h.saveBooknoteNoteText).not.toHaveBeenCalled();
   });
 });

@@ -25,7 +25,10 @@ import type { EchoTrail } from '@/services/echoes/types';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useSaveBooknoteNoteText } from '../../hooks/useSaveBooknoteNoteText';
-import { removeEmptyAnnotationPlaceholder } from '../../utils/annotatorUtil';
+import {
+  removeBookNoteOverlays,
+  removeEmptyAnnotationPlaceholder,
+} from '../../utils/annotatorUtil';
 import { eventDispatcher } from '@/utils/event';
 import { focusExistingReaderWindow, navigateToReader } from '@/utils/nav';
 import { emitTo } from '@tauri-apps/api/event';
@@ -53,6 +56,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
   const echoStore = useEchoStore();
   const { settings } = useSettingsStore();
   const { getConfig, updateBooknotes, saveConfig } = useBookDataStore();
+  const getViewsById = useReaderStore((s) => s.getViewsById);
   const { library } = useLibraryStore();
   const { setNotebookActiveTab } = useNotebookStore();
   const { createConversation, addMessage, setAgyConversationId } = useAIChatStore();
@@ -169,6 +173,8 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
           const { booknotes = [] } = getConfig(bookKey) ?? {};
           const removed = removeEmptyAnnotationPlaceholder(booknotes, annotationId, Date.now());
           if (removed) {
+            const views = getViewsById(bookKey.split('-')[0]!);
+            views.forEach((view) => removeBookNoteOverlays(view, removed));
             const updatedConfig = updateBooknotes(bookKey, booknotes);
             if (updatedConfig) {
               const latestSettings = useSettingsStore.getState().settings;
@@ -198,6 +204,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
     echoStore,
     envConfig,
     getConfig,
+    getViewsById,
     pendingSeed,
     runToken,
     saveBooknoteNoteText,
