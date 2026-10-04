@@ -181,6 +181,21 @@ describe('echoStore', () => {
     expect(ECHOES_DIR).toBe('_echoes');
   });
 
+  it('list() re-reads disk so a warmed library store sees reader promotes', async () => {
+    const fs = createMemoryFs();
+    const library = createPersistentEchoStore(fs);
+    const reader = createPersistentEchoStore(fs);
+    expect(await library.list()).toHaveLength(0);
+
+    const trail = await reader.upsert(draftInput());
+    await reader.promote(trail.id);
+
+    const listed = await library.list();
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.id).toBe(trail.id);
+    expect(listed[0]?.status).toBe('promoted');
+  });
+
   it('throws when promoting a missing trail', async () => {
     const store = createMemoryEchoStore();
     await expect(store.promote('missing')).rejects.toThrow(/not found/);

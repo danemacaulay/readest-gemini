@@ -83,20 +83,25 @@ export default function EchoesPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    const load = async (opts?: { quiet?: boolean }) => {
       const store = getStore();
       if (!store) return;
-      setListLoading(true);
+      if (!opts?.quiet) setListLoading(true);
       try {
         const next = await store.list();
         if (!cancelled) setTrails(next);
       } finally {
-        if (!cancelled) setListLoading(false);
+        if (!cancelled && !opts?.quiet) setListLoading(false);
       }
     };
     void load();
+    // Reader promotes write from another webview; refresh when this window
+    // is focused again so the list is not stuck on the first mount snapshot.
+    const onFocus = () => void load({ quiet: true });
+    window.addEventListener('focus', onFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', onFocus);
     };
   }, [getStore]);
 

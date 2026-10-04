@@ -261,6 +261,25 @@ describe('bookDataStore', () => {
       expect(booknotes.map((n) => n.id)).toEqual(['good']);
     });
 
+    test('keeps echo stubs even when they have no selection cfi', () => {
+      const data = makeBookData('book1', { booknotes: [] });
+      useBookDataStore.setState({ booksData: { book1: data } });
+
+      useBookDataStore.getState().updateBooknotes('book1', [
+        makeBookNote({
+          id: 'echo-1',
+          type: 'echo',
+          cfi: '',
+          note: 'echo:trail-1',
+          text: 'What is virtue?',
+        }),
+        makeBookNote({ id: 'empty-annotation', type: 'annotation', cfi: '' }),
+      ]);
+
+      const booknotes = useBookDataStore.getState().getConfig('book1')!.booknotes!;
+      expect(booknotes.map((n) => n.id)).toEqual(['echo-1']);
+    });
+
     test('deduplicates booknotes by id-type-cfi', () => {
       const data = makeBookData('book1', { booknotes: [] });
       useBookDataStore.setState({ booksData: { book1: data } });

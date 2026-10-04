@@ -93,8 +93,13 @@ interface BookDataState {
  * Every write to `config.booknotes` funnels through this store, so discard them
  * here rather than defending each of the many CFI comparison sites.
  */
+/**
+ * Drop notes that cannot be located in the book. Echo stubs are exempt:
+ * question-only Find Echoes runs have no selection CFI, but still belong in
+ * the annotations list / notebook after promote.
+ */
 const discardUnanchoredBooknotes = (booknotes: BookNote[]): BookNote[] =>
-  booknotes.filter((booknote) => booknote.cfi);
+  booknotes.filter((booknote) => booknote.type === 'echo' || !!booknote.cfi);
 
 export const useBookDataStore = create<BookDataState>((set, get) => ({
   booksData: {},

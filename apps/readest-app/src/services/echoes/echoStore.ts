@@ -161,13 +161,17 @@ export function createPersistentEchoStore(fs: FileSystem): EchoStore {
   let state: EchoesSnapshot = emptySnapshot();
   let chain: Promise<void> = Promise.resolve();
 
-  const ensureLoaded = async () => {
-    if (loaded) return;
+  const readFromDisk = async () => {
     const data = await safeLoadJSON<EchoesSnapshot>(fs, ECHOES_FILE, ECHOES_BASE, emptySnapshot());
     state = {
       trails: Array.isArray(data.trails) ? data.trails : [],
     };
     loaded = true;
+  };
+
+  const ensureLoaded = async () => {
+    if (loaded) return;
+    await readFromDisk();
   };
 
   const persist = async (next: EchoesSnapshot) => {
@@ -196,7 +200,14 @@ export function createPersistentEchoStore(fs: FileSystem): EchoStore {
   return {
     load: () => withLoad(() => inner.load()),
     save: (snapshot) => withLoad(() => inner.save(snapshot)),
-    list: () => withLoad(() => inner.list()),
+    // Always re-read: library and reader are separate webviews with their own
+    // singleton; a promote in the reader must appear the next time Library →
+    // Echoes calls list().
+    list: () =>
+      withLoad(async () => {
+        await readFromDisk();
+        return inner.list();
+      }),
     get: (id) => withLoad(() => inner.get(id)),
     upsert: (input) => withLoad(() => inner.upsert(input)),
     delete: (id) => withLoad(() => inner.delete(id)),
