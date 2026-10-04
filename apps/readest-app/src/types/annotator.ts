@@ -3,6 +3,7 @@ export type AnnotationToolType =
   | 'copylink'
   | 'highlight'
   | 'annotate'
+  | 'ask'
   | 'find-echoes'
   | 'search'
   | 'dictionary'

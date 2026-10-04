@@ -722,11 +722,12 @@ describe('services/constants', () => {
       expect(DEFAULT_ANNOTATOR_CONFIG.noteExportConfig).toBe(DEFAULT_NOTE_EXPORT_CONFIG);
     });
 
-    it('annotationToolbarItems defaults to the shared toolbar items (no Ask)', () => {
+    it('annotationToolbarItems defaults to the shared toolbar items (includes Ask)', () => {
       expect(DEFAULT_ANNOTATOR_CONFIG.annotationToolbarItems).toEqual(
         DEFAULT_ANNOTATION_TOOLBAR_ITEMS,
       );
-      expect(DEFAULT_ANNOTATOR_CONFIG.annotationToolbarItems).not.toContain('ask');
+      expect(DEFAULT_ANNOTATOR_CONFIG.annotationToolbarItems).toContain('ask');
+      expect(DEFAULT_ANNOTATOR_CONFIG.annotationToolbarItems).toContain('find-echoes');
       expect(DEFAULT_ANNOTATOR_CONFIG.annotationToolbarItems).not.toContain('ask-with-library');
       expect(DEFAULT_ANNOTATOR_CONFIG.annotationToolbarItems).not.toContain('share');
     });

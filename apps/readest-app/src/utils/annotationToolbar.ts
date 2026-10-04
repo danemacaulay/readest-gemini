@@ -16,6 +16,7 @@ export const ALL_ANNOTATION_TOOL_TYPES: AnnotationToolType[] = [
   'copylink',
   'highlight',
   'annotate',
+  'ask',
   'find-echoes',
   'search',
   'dictionary',
@@ -31,6 +32,7 @@ export const DEFAULT_ANNOTATION_TOOLBAR_ITEMS: AnnotationToolType[] = [
   'copy',
   'highlight',
   'annotate',
+  'ask',
   'find-echoes',
   'search',
   'dictionary',
@@ -40,7 +42,8 @@ export const DEFAULT_ANNOTATION_TOOLBAR_ITEMS: AnnotationToolType[] = [
 ];
 
 // Retired Ask tools that older book/global configs may still list.
-const RETIRED_ASK_TOOLS = new Set(['ask', 'ask-with-library']);
+// Only the retired library Ask tool remaps; plain Ask is live again.
+const RETIRED_ASK_TOOLS = new Set(['ask-with-library']);
 
 // Drop unknown/duplicate entries (including retired Ask tools persisted in
 // older configs); fall back to the default when unset. Retired Ask slots map

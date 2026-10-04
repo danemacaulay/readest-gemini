@@ -17,11 +17,12 @@ describe('annotationToolbar helpers', () => {
     expect(ALL_ANNOTATION_TOOL_TYPES).toEqual(annotationToolButtons.map((b) => b.type));
   });
 
-  test('default toolbar excludes share/copylink and retired Ask tools', () => {
+  test('default toolbar includes ask and find-echoes, excludes share/copylink and legacy ask-with-library', () => {
     expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).toEqual([
       'copy',
       'highlight',
       'annotate',
+      'ask',
       'find-echoes',
       'search',
       'dictionary',
@@ -29,8 +30,9 @@ describe('annotationToolbar helpers', () => {
       'tts',
       'proofread',
     ]);
+    expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).toContain('ask');
+    expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).toContain('find-echoes');
     expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).not.toContain('share');
-    expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).not.toContain('ask');
     expect(DEFAULT_ANNOTATION_TOOLBAR_ITEMS).not.toContain('ask-with-library');
   });
 
@@ -63,6 +65,7 @@ describe('annotationToolbar helpers', () => {
       'copylink',
       'highlight',
       'annotate',
+      'ask',
       'find-echoes',
       'search',
       'dictionary',
@@ -73,15 +76,16 @@ describe('annotationToolbar helpers', () => {
     ]);
   });
 
-  test('sanitize maps retired Ask tools to find-echoes', () => {
+  test('sanitize maps legacy ask-with-library to find-echoes and keeps plain ask', () => {
     expect(getToolbarToolTypes(['copy', 'ask', 'ask-with-library', 'tts'] as never, true)).toEqual([
       'copy',
+      'ask',
       'find-echoes',
       'tts',
     ]);
   });
 
-  test('sanitize maps book-level Ask toolbar (overrides global) to Echoes', () => {
+  test('sanitize maps book-level legacy ask-with-library to Echoes while keeping ask', () => {
     // Real persisted book config from soft-fork Ask era.
     expect(
       getToolbarToolTypes(
@@ -103,6 +107,7 @@ describe('annotationToolbar helpers', () => {
       'highlight',
       'annotate',
       'search',
+      'ask',
       'find-echoes',
       'dictionary',
       'translate',
