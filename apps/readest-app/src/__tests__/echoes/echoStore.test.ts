@@ -21,21 +21,21 @@ function createMemoryFs(): FileSystem {
     resolvePath: () => ({ path: '', base: 'None' as BaseDir }),
     getURL: () => '',
     getBlobURL: async () => '',
-    readFile: async (path, base) => {
+    readFile: async (path: string, base: BaseDir) => {
       const value = files.get(key(path, base));
       if (value === undefined) throw new Error(`ENOENT: ${path}`);
       return value;
     },
-    writeFile: async (path, base, content) => {
+    writeFile: async (path: string, base: BaseDir, content: string | ArrayBuffer | File) => {
       files.set(key(path, base), typeof content === 'string' ? content : String(content));
     },
-    removeFile: async (path, base) => {
+    removeFile: async (path: string, base: BaseDir) => {
       files.delete(key(path, base));
     },
     readDir: async () => [],
     createDir: async () => undefined,
     removeDir: async () => undefined,
-    exists: async (path, base) => files.has(key(path, base)),
+    exists: async (path: string, base: BaseDir) => files.has(key(path, base)),
     stats: async () => ({ size: 0, isDirectory: false, isFile: true }),
   } as unknown as FileSystem;
 }

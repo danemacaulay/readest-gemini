@@ -4,13 +4,11 @@ import type { Book } from '@/types/book';
 
 function book(partial: Partial<Book> & { hash: string; filePath?: string }): Book {
   return {
-    hash: partial.hash,
     format: 'EPUB',
-    title: partial.title ?? 'T',
+    title: 'T',
     author: 'A',
     createdAt: 1,
     updatedAt: 1,
-    filePath: partial.filePath,
     ...partial,
   } as Book;
 }
