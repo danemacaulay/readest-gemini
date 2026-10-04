@@ -38,6 +38,10 @@ const TTS_HIGHLIGHT_NAME = 'readest-tts-paragraph';
 // Prefix of the CSS Custom Highlight names the book's own highlights are painted
 // under on the clone, one per style and colour (#6200).
 const ANNOTATION_HIGHLIGHT_PREFIX = 'readest-annotation-';
+// Pending selection painted on the clone while the annotator toolbar is up.
+// Native selection collapses when focus moves to the toolbar; this keeps a
+// visible mark of what will be highlighted until the user dismisses or commits.
+const SELECTION_HIGHLIGHT_NAME = 'readest-paragraph-selection';
 
 const isSameRange = (a: Range, b: Range) => {
   try {
@@ -189,6 +193,8 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   const [focusIndex, setFocusIndex] = useState(-1);
   // `::highlight()` rules for the book highlights painted on the clone.
   const [annotationCss, setAnnotationCss] = useState('');
+  // Bumps when the pending-selection CSS highlight should repaint/clear.
+  const [selectionPaintKey, setSelectionPaintKey] = useState(0);
   const [ttsHighlight, setTtsHighlight] = useState<{
     index: number;
     start: number;
@@ -204,6 +210,10 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   // The clone range last handed to the annotator; null once the live selection
   // has left it, so the same text selected again is reported again.
   const reportedRangeRef = useRef<Range | null>(null);
+  // Clone range kept for the pending-selection CSS highlight. Unlike
+  // reportedRangeRef, this survives native selection collapse (toolbar focus /
+  // button clicks) so the mark stays visible until clearReportedSelection.
+  const selectionPaintRangeRef = useRef<Range | null>(null);
   // Whether the annotator holds a selection of ours that has not been cleared.
   const selectionActiveRef = useRef(false);
   const menuSuppressedRef = useRef(false);
@@ -335,6 +345,8 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
 
   const clearReportedSelection = useCallback(() => {
     reportedRangeRef.current = null;
+    selectionPaintRangeRef.current = null;
+    setSelectionPaintKey((key) => key + 1);
     syncNativeSelectionMenu(false);
     if (!selectionActiveRef.current) return;
     selectionActiveRef.current = false;
@@ -359,6 +371,8 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
     if (reported && isSameRange(reported, range)) return;
     const cloneRange = range.cloneRange();
     reportedRangeRef.current = cloneRange;
+    selectionPaintRangeRef.current = cloneRange;
+    setSelectionPaintKey((key) => key + 1);
     const source = sourceRangeRef.current;
     const view = getView(bookKey);
     const index = source
@@ -615,6 +629,25 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
     registry.set(TTS_HIGHLIGHT_NAME, new Highlight(range));
     return clear;
   }, [ttsHighlight, focusIndex, paragraphs]);
+
+  // Keep a selection-coloured mark on the clone while the toolbar is up. Native
+  // selection collapses as soon as focus leaves the clone (annotator focus or
+  // a toolbar button); this CSS Highlight uses the reported range copy so the
+  // user still sees what Highlight / Ask / Echoes will act on.
+  useEffect(() => {
+    const registry = typeof CSS !== 'undefined' ? CSS.highlights : undefined;
+    if (!registry || typeof Highlight === 'undefined') return undefined;
+    const clear = () => {
+      registry.delete(SELECTION_HIGHLIGHT_NAME);
+    };
+    const range = selectionPaintRangeRef.current;
+    if (!range || !range.startContainer.isConnected) {
+      clear();
+      return clear;
+    }
+    registry.set(SELECTION_HIGHLIGHT_NAME, new Highlight(range));
+    return clear;
+  }, [selectionPaintKey, paragraphs]);
 
   // Paint the book's highlights that fall in the focused paragraph onto the
   // clone (#6200). The overlay hides the page, so a highlight made here — or
@@ -982,6 +1015,11 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
 
           ::highlight(${TTS_HIGHLIGHT_NAME}) {
             ${ttsHighlightCss}
+          }
+
+          ::highlight(${SELECTION_HIGHLIGHT_NAME}) {
+            background-color: color-mix(in srgb, Highlight 85%, transparent);
+            color: HighlightText;
           }
 
           ${annotationCss}

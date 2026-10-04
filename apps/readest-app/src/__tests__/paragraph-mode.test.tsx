@@ -1419,6 +1419,39 @@ describe('paragraph mode selection (#6200)', () => {
     expect(selectionReports(dispatchSpy)).toHaveLength(1);
   });
 
+  it('keeps a CSS selection highlight after the native selection collapses', async () => {
+    const highlights = new Map<string, { ranges: Range[] }>();
+    (globalThis as unknown as { CSS: unknown }).CSS = { highlights };
+    (globalThis as unknown as { Highlight: unknown }).Highlight = class {
+      ranges: Range[];
+      constructor(...ranges: Range[]) {
+        this.ranges = ranges;
+      }
+    };
+    try {
+      const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
+      const { clone, container } = await renderOverlayWithSource();
+      selectInClone(clone, 'brave');
+      await waitFor(() => expect(selectionReports(dispatchSpy)).toHaveLength(1));
+
+      document.getSelection()!.removeAllRanges();
+      document.dispatchEvent(new Event('selectionchange'));
+      await settle();
+
+      await waitFor(() => {
+        expect(highlights.has('readest-paragraph-selection')).toBe(true);
+      });
+      const entry = highlights.get('readest-paragraph-selection')!;
+      expect(entry.ranges.map((range) => range.toString())).toEqual(['brave']);
+      expect(container.querySelector('style')!.textContent).toContain(
+        '::highlight(readest-paragraph-selection)',
+      );
+    } finally {
+      delete (globalThis as unknown as { CSS?: unknown }).CSS;
+      delete (globalThis as unknown as { Highlight?: unknown }).Highlight;
+    }
+  });
+
   it('neither navigates nor exits on taps while text is selected', async () => {
     const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
     const { clone, contentArea, onClose } = await renderOverlayWithSource();

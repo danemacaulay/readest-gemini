@@ -1394,7 +1394,11 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
   }, [selection?.cfi, showAnnotationNotes, config.booknotes]);
 
   const handleShowAnnotPopup = () => {
-    if (!appService?.isMobile) {
+    // Popup selections (paragraph-mode clone, footnote popup) live in the host
+    // document. Focusing this toolbar steals focus from that selection and
+    // collapses it — the user loses the blue selection the moment the menu
+    // appears. Skip focus for those; book-iframe selections are unaffected.
+    if (!appService?.isMobile && !selection?.popup) {
       containerRef.current?.focus();
     }
     setShowAnnotPopup(true);
