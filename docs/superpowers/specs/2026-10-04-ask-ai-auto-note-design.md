@@ -25,7 +25,7 @@ No global Ask history. No Ask with library. No Ask chat panel.
 - Collect a question via **AskComposer**
 - Run Ask headlessly after dismiss
 - On success: create/update the highlight like Annotate and write the note body
-- Note body = **assistant answer + short citation line** (book title, page when known)
+- Note body = **assistant answer only** (highlight already anchors the passage; no citation footer)
 - Progress UX = **silent**: dismiss selection UI; toast when the note lands (or on error)
 - **Delete** the old Ask panel, Ask-with-library mode, Questions history UI/store, and related tests
 
@@ -53,14 +53,10 @@ Select text → Ask (toolbar)
 
 ```
 {assistant answer}
-
-— {book title}{, p.{page}}
 ```
 
-- Blank line between answer and citation
-- Omit `, p.{page}` when page is unknown / zero
-- Do not include the user’s question
-- Soft-trim trailing whitespace on the answer before formatting
+- Soft-trim trailing whitespace on the answer
+- Do not include the user’s question, book title, page, or other citation footer — the booknote is already bound to the highlight/CFI
 
 ### Guards (match Annotate)
 
@@ -71,7 +67,7 @@ Select text → Ask (toolbar)
 ### Concurrent Asks
 
 - One in-flight selection Ask per book view; a second submit while running shows “Ask already in progress” and does not start another run
-- Capture selection text, CFI, book title, and page at submit time
+- Capture selection text and CFI at submit time (book title still goes to the Ask prompt, not the note)
 
 ## Architecture
 
@@ -80,8 +76,7 @@ Annotator (toolbar 'ask')
   → AskComposer
   → headless runner
        → buildAskPrompt + completeWithAntigravity (ungrounded)
-       → formatAskNoteBody(answer, { bookTitle, page })
-       → ensure highlight + saveBooknoteNoteText
+       → trim answer → ensure highlight + saveBooknoteNoteText
        → toast
 ```
 
@@ -91,7 +86,6 @@ Annotator (toolbar 'ask')
 | `annotationToolbar` sanitize | Drop `ask` from retired-tools rewrite; map legacy `ask-with-library` → `find-echoes` (migration only), then remove that tool from the type system |
 | AskComposer | Question dialog only (`mode` prop removed or fixed to Ask) |
 | Headless Ask helper | Thin wrapper over prompt + `agy`; no retrieve, no follow-up, no history |
-| Note formatter | Pure `formatAskNoteBody` (unit-tested) |
 | Shared `agy` plumbing | Keep `antigravityClient`, `runCommand`, `agyShell` — still used by Echoes, notebook chat, settings, indexing |
 
 ### Cleanup (delete)
@@ -136,17 +130,16 @@ Orphan on-disk `ask-history.json` may be left in place; no migration. Optional l
 
 ## Testing
 
-- Unit: `formatAskNoteBody` (with/without page; trims answer)
 - Unit: toolbar sanitize — `ask` kept; `ask-with-library` → `find-echoes`
-- Unit: ungrounded Ask helper (mock `complete`) returns answer; no retrieve call
-- Component/integration: Ask submit creates highlight + note with expected body (mock completion)
+- Unit: ungrounded Ask helper (mock `complete`) returns trimmed answer; no retrieve call
+- Component/integration: Ask submit creates highlight + note whose body is exactly the trimmed answer (mock completion)
 - Confirm Questions route / history modules are gone (import/build fails if leftovers)
 - No live `agy` E2E required for this change
 
 ## Decisions (locked)
 
 1. Auto-save note (no editor)  
-2. Note = answer + short citation  
+2. Note body = trimmed answer only (highlight is the citation)  
 3. Silent wait + toast  
 4. Ask only — library grounding is Echoes  
 5. Approach A — headless Ask → Annotate save path  
