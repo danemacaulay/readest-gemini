@@ -9,19 +9,37 @@ import type { EchoPassage, EchoSource } from '@/services/echoes/types';
 /** Rough threshold: if longer than ~3 short lines, offer expand. */
 const COLLAPSE_CHAR_HINT = 180;
 
+/**
+ * EPUB / LightRAG chunks often ship with hard wraps every ~40–70 chars.
+ * Collapse those into a readable block: single newlines → spaces, keep
+ * blank lines as paragraph breaks.
+ */
+export function formatEchoQuoteForDisplay(raw: string): string {
+  return raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .split(/\n\n/)
+    .map((para) =>
+      para
+        .replace(/-\n+(?=\w)/g, '-') // line-broken compounds: "well-\nknown"
+        .replace(/\n+/g, ' ')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim(),
+    )
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export function resolveSourceQuote(
   source: EchoSource,
   passages?: EchoPassage[],
 ): { preview: string; full: string } {
   const fromPassage = passages?.find((p) => p.id === source.id);
-  const full = (
-    source.content ||
-    fromPassage?.content ||
-    source.snippet ||
-    fromPassage?.snippet ||
-    ''
-  ).trim();
-  const preview = (source.snippet || fromPassage?.snippet || full).trim();
+  const full = formatEchoQuoteForDisplay(
+    source.content || fromPassage?.content || source.snippet || fromPassage?.snippet || '',
+  );
+  const preview = formatEchoQuoteForDisplay(source.snippet || fromPassage?.snippet || full);
   return { preview: preview || full, full: full || preview };
 }
 
@@ -57,7 +75,9 @@ export const EchoSourceCard: React.FC<EchoSourceCardProps> = ({
           </p>
           <p
             className={clsx(
-              'text-base-content/70 mt-1 whitespace-pre-wrap text-xs leading-relaxed',
+              'text-base-content/70 mt-1 text-xs leading-relaxed',
+              // Paragraph breaks only (from formatEchoQuoteForDisplay); soft-wrap otherwise.
+              'whitespace-pre-line',
               !expanded && 'line-clamp-3',
             )}
           >

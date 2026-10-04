@@ -1,13 +1,29 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { EchoSourceCard, resolveSourceQuote } from '@/components/echoes/EchoSourceCard';
+import {
+  EchoSourceCard,
+  formatEchoQuoteForDisplay,
+  resolveSourceQuote,
+} from '@/components/echoes/EchoSourceCard';
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (key: string) => key,
 }));
 
 afterEach(cleanup);
+
+describe('formatEchoQuoteForDisplay', () => {
+  it('unwraps hard line breaks into a flowing paragraph', () => {
+    const raw = 'The obstacle\nis the way,\nand the way\nis forward.';
+    expect(formatEchoQuoteForDisplay(raw)).toBe('The obstacle is the way, and the way is forward.');
+  });
+
+  it('keeps blank lines as paragraph breaks and joins soft hyphens', () => {
+    const raw = 'A well-\nknown idea.\n\nNext\nparagraph.';
+    expect(formatEchoQuoteForDisplay(raw)).toBe('A well-known idea.\n\nNext paragraph.');
+  });
+});
 
 describe('resolveSourceQuote', () => {
   it('prefers full content over the short snippet alias', () => {
