@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/services/ai/utils/httpFetch', () => ({
+  getAIFetch: () => globalThis.fetch.bind(globalThis),
+}));
+
 import {
   badgeForBookId,
   badgeState,

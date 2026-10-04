@@ -872,6 +872,11 @@ const AIPanel: React.FC = () => {
             onChange={(e) => setLightragBaseUrl(e.target.value)}
             placeholder='http://127.0.0.1:8765'
           />
+          <span className='text-base-content/60 text-xs'>
+            {_(
+              'lib-rag viz URL for Echoes / retrieve (default http://127.0.0.1:8765 via `make viz`). The LightRAG WebUI on :9621 is a different server and will not work here.',
+            )}
+          </span>
         </div>
         <div className='flex flex-col gap-2 py-3 pe-4'>
           <SettingLabel>{_('LightRAG Mode')}</SettingLabel>

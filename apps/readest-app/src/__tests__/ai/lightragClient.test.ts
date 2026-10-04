@@ -1,4 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/services/ai/utils/httpFetch', () => ({
+  getAIFetch: () => {
+    throw new Error('getAIFetch should not be used when fetchImpl is provided');
+  },
+}));
+
 import { retrieveFromLightRAG, LightRAGUnreachableError } from '../../services/ai/lightrag/client';
 
 describe('retrieveFromLightRAG', () => {
@@ -67,5 +74,21 @@ describe('retrieveFromLightRAG', () => {
         fetchImpl,
       }),
     ).rejects.toBeInstanceOf(LightRAGUnreachableError);
+  });
+
+  it('hints make viz when /api/retrieve is missing (WebUI on :9621)', async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ detail: 'Not Found' }), { status: 404 }),
+    );
+    await expect(
+      retrieveFromLightRAG({
+        baseUrl: 'http://127.0.0.1:9621',
+        query: 'q',
+        fetchImpl,
+      }),
+    ).rejects.toMatchObject({
+      name: 'LightRAGUnreachableError',
+      message: expect.stringContaining('make viz'),
+    });
   });
 });

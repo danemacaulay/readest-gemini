@@ -1,3 +1,5 @@
+import { getAIFetch } from '../utils/httpFetch';
+
 export type LightRAGIndexBadge = 'none' | 'indexing' | 'indexed';
 
 export function badgeState(
@@ -17,7 +19,7 @@ type BooksApiRow = {
 
 export async function fetchIndexedBookIds(
   baseUrl: string,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = getAIFetch(),
 ): Promise<Set<number>> {
   try {
     const normalized = baseUrl.replace(/\/+$/, '');
