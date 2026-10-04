@@ -1437,6 +1437,27 @@ describe('paragraph mode selection (#6200)', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('swallows wheel without turning paragraphs or clearing a reported selection', async () => {
+    const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
+    const { clone } = await renderOverlayWithSource();
+    selectInClone(clone, 'brave');
+    await waitFor(() => expect(selectionReports(dispatchSpy)).toHaveLength(1));
+    dispatchSpy.mockClear();
+
+    const wheel = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 120,
+    });
+    const prevented = !window.dispatchEvent(wheel);
+
+    expect(prevented).toBe(true);
+    expect(dispatchSpy).not.toHaveBeenCalledWith('paragraph-next', { bookKey: overlayBookKey });
+    expect(dispatchSpy).not.toHaveBeenCalledWith('paragraph-prev', { bookKey: overlayBookKey });
+    // No empty footnote-selection either — toolbar/selection stay put.
+    expect(selectionReports(dispatchSpy)).toHaveLength(0);
+  });
+
   it('lets a showing selection popup consume the tap instead of navigating', async () => {
     const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
     const consume = vi.fn(() => true);

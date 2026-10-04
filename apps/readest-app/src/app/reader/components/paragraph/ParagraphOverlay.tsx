@@ -197,7 +197,6 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   const paragraphIdCounter = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const lastScrollTime = useRef(0);
   const onCloseRef = useRef(onClose);
   // The focused paragraph's live range in the book document, so a selection
   // made in the clone can be mapped back onto the book (#6200).
@@ -522,27 +521,21 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
     ],
   );
 
+  // Swallow wheel while the overlay is up: do not turn paragraphs and do not
+  // let the gesture reach the book (page flip / scroll). Trackpad inertia after
+  // a drag-select used to fire paragraph-next/prev, which cleared the reported
+  // selection and dismissed the highlight toolbar.
   useEffect(() => {
     if (!isVisible) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-
-      const now = Date.now();
-      if (now - lastScrollTime.current < 150) return;
-      lastScrollTime.current = now;
-
-      if (e.deltaY > 0) {
-        eventDispatcher.dispatch('paragraph-next', { bookKey });
-      } else if (e.deltaY < 0) {
-        eventDispatcher.dispatch('paragraph-prev', { bookKey });
-      }
     };
 
     window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
     return () => window.removeEventListener('wheel', handleWheel, true);
-  }, [isVisible, bookKey]);
+  }, [isVisible]);
 
   // Watch the document selection while the overlay is up (#6200). A settled
   // selection inside the clone is reported once; a finished drag reports at
