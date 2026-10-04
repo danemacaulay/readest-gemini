@@ -13,7 +13,7 @@ import { useNotebookStore } from '@/store/notebookStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
 import { tauriRunCommand } from '@/services/ai/ask/runCommand';
-import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
+import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService';
 import { EchoConnectionList } from '@/components/echoes/EchoConnectionList';
 import { EchoIdeaChips } from '@/components/echoes/EchoIdeaChips';
 import { EchoSourceCard } from '@/components/echoes/EchoSourceCard';

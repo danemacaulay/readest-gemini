@@ -26,7 +26,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTrafficLight } from '@/hooks/useTrafficLight';
 import { useTranslation } from '@/hooks/useTranslation';
-import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
+import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService';
 import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
 import {
   deleteEchoTrail,
@@ -59,7 +59,6 @@ const FILTERS: { id: EchoesListFilter; labelKey: string }[] = [
 
 /**
  * Library-owned promoted Echo trails. Opens the seed book via {@link useOpenBook}.
- * Standalone from Ask history (`/library/questions`).
  */
 export default function EchoesPage() {
   const _ = useTranslation();

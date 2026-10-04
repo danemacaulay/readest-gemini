@@ -94,7 +94,7 @@ vi.mock('@/services/echoes/echoSync', async () => {
   };
 });
 
-vi.mock('@/services/ai/history/historyStore', () => ({
+vi.mock('@/services/ai/fileSystemFromAppService', () => ({
   fileSystemFromAppService: () => ({}),
 }));
 

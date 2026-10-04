@@ -28,7 +28,7 @@ import { BooknoteTimeLabel } from './BooknoteTime';
 import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
 import { getPersistentEchoStore } from '@/services/echoes/echoStore';
 import { deleteEchoTrail } from '@/services/echoes/echoSync';
-import { fileSystemFromAppService } from '@/services/ai/history/historyStore';
+import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 
 interface BooknoteItemProps {
