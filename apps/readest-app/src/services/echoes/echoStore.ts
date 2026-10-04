@@ -88,6 +88,8 @@ function createStoreFromState(
         synthesis: input.synthesis ?? '',
         sources: input.sources ?? [],
         books: input.books,
+        synthesisContext: input.synthesisContext,
+        passages: input.passages,
         ideas: input.ideas,
         connections: input.connections,
         createdAt: input.createdAt ?? now,

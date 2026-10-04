@@ -128,18 +128,34 @@ describe('continueEchoInChat', () => {
     },
     synthesis: 'Epictetus echoes this in [s1].',
     sources: [{ id: 's1', title: 'Enchiridion', snippet: 'x', bookTitle: 'Epictetus' }],
+    synthesisContext: 'RICH_PACK_BODY with long quotes',
+    passages: [
+      {
+        id: 's1',
+        bookTitle: 'Epictetus',
+        content: 'The full retrieved passage about obstacles.',
+      },
+    ],
+    ideas: [{ id: 'i1', name: 'Assent', type: 'concept', description: 'inner agreement' }],
+    connections: [
+      { id: 'c1', from: 'Assent', to: 'Judgement', description: 'assent precedes judgement' },
+    ],
     createdAt: 1,
     updatedAt: 2,
     agyConversationId: 'agy-9',
   };
 
-  it('builds a seed+synthesis preamble payload', () => {
+  it('builds a full-pack preamble payload for chat', () => {
     const payload = buildContinueEchoChatPayload(trail);
     expect(payload.bookHash).toBe('hash-1');
     expect(payload.title).toMatch(/^Echo:/);
     expect(payload.agyConversationId).toBe('agy-9');
     expect(payload.preamble).toContain('Comparative take');
     expect(payload.preamble).toContain('obstacle advances action');
+    expect(payload.preamble).toContain('RICH_PACK_BODY');
+    expect(payload.preamble).toContain('The full retrieved passage about obstacles.');
+    expect(payload.preamble).toContain('Assent');
+    expect(payload.preamble).toContain('Assent → Judgement');
     expect(buildEchoChatPreamble(trail)).toBe(payload.preamble);
   });
 

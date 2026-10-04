@@ -6,6 +6,19 @@ export type EchoSource = {
   snippet: string;
   bookId?: string | number;
   bookTitle?: string;
+  /** Full retrieved chunk when available (rich retrieve). */
+  content?: string;
+};
+
+export type EchoPassage = {
+  id: string;
+  title?: string;
+  bookId?: number;
+  bookTitle?: string;
+  referenceId?: string;
+  chunkId?: string;
+  snippet?: string;
+  content?: string;
 };
 
 export type EchoBook = {
@@ -44,6 +57,9 @@ export type EchoTrail = {
   synthesis: string;
   sources: EchoSource[];
   books?: EchoBook[];
+  /** Server-built rich pack (full quotes + ideas + links). */
+  synthesisContext?: string;
+  passages?: EchoPassage[];
   ideas?: EchoIdea[];
   connections?: EchoConnection[];
   createdAt: number;

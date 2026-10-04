@@ -1,5 +1,5 @@
 import { retrieveFromLightRAG } from '@/services/ai/lightrag/client';
-import type { LightRAGSource } from '@/services/ai/lightrag/types';
+import type { EchoesPassage, LightRAGSource } from '@/services/ai/lightrag/types';
 import { completeWithAntigravity, type RunCommand } from '@/services/ai/ask/antigravityClient';
 import type { EchoStore } from './echoStore';
 import { buildEchoesPrompt } from './promptBuilder';
@@ -42,14 +42,19 @@ export type ContinueEchoChatResult = {
   payload: ContinueEchoChatPayload;
 };
 
-function toEchoSources(sources: LightRAGSource[]): EchoSource[] {
-  return sources.map((s) => ({
-    id: s.id,
-    title: s.title,
-    snippet: s.snippet,
-    bookId: s.bookId,
-    bookTitle: s.bookTitle,
-  }));
+function toEchoSources(sources: LightRAGSource[], passages?: EchoesPassage[]): EchoSource[] {
+  const byId = new Map((passages ?? []).map((p) => [p.id, p]));
+  return sources.map((s) => {
+    const passage = byId.get(s.id);
+    return {
+      id: s.id,
+      title: s.title,
+      snippet: s.snippet,
+      bookId: s.bookId ?? passage?.bookId,
+      bookTitle: s.bookTitle || passage?.bookTitle,
+      content: passage?.content || passage?.snippet || s.snippet,
+    };
+  });
 }
 
 function retrieveQuery(seed: EchoTrailSeed): string {
@@ -60,7 +65,7 @@ function retrieveQuery(seed: EchoTrailSeed): string {
   return seed.bookTitle?.trim() || 'related ideas across my library';
 }
 
-/** Build the seed+synthesis preamble used to hand an EchoTrail into notebook chat. */
+/** Build the full trail dump used to hand an EchoTrail into notebook chat. */
 export function buildEchoChatPreamble(trail: EchoTrail): string {
   const parts: string[] = ['[Echoes trail — continue from this comparative take]'];
   if (trail.seed.bookTitle) parts.push(`Seed book: ${trail.seed.bookTitle}`);
@@ -71,12 +76,69 @@ export function buildEchoChatPreamble(trail: EchoTrail): string {
   if (trail.synthesis.trim()) {
     parts.push(`Comparative take:\n${trail.synthesis.trim()}`);
   }
-  if (trail.sources.length) {
+
+  const pack = trail.synthesisContext?.trim();
+  if (pack) {
+    parts.push(`Rich library pack:\n${pack}`);
+  }
+
+  const passages = trail.passages?.length
+    ? trail.passages
+    : trail.sources.map((s) => ({
+        id: s.id,
+        bookTitle: s.bookTitle,
+        title: s.title,
+        content: s.content,
+        snippet: s.snippet,
+      }));
+  if (passages.length) {
+    const block = passages
+      .map((p) => {
+        const title = p.bookTitle || p.title || 'Passage';
+        const body = (p.content || p.snippet || '').trim();
+        return `[${p.id}] ${title}\n"""\n${body}\n"""`;
+      })
+      .join('\n\n');
+    parts.push(`Passages (full quotes; cite by [id]):\n${block}`);
+  }
+
+  if (trail.books?.length) {
     parts.push(
-      `Sources: ${trail.sources.map((s) => `[${s.id}] ${s.bookTitle || s.title}`).join('; ')}`,
+      `Books:\n${trail.books
+        .map(
+          (b) =>
+            `- ${b.bookTitle || b.bookId}${b.passageCount != null ? ` (${b.passageCount})` : ''}`,
+        )
+        .join('\n')}`,
     );
   }
-  parts.push('Continue the conversation from here. Prefer these sources; do not invent books.');
+
+  if (trail.ideas?.length) {
+    parts.push(
+      `Ideas:\n${trail.ideas
+        .map((idea) => {
+          const type = idea.type ? ` (${idea.type})` : '';
+          const desc = idea.description ? `: ${idea.description}` : '';
+          return `- [${idea.id}] ${idea.name}${type}${desc}`;
+        })
+        .join('\n')}`,
+    );
+  }
+
+  if (trail.connections?.length) {
+    parts.push(
+      `Connections:\n${trail.connections
+        .map((c) => {
+          const desc = c.description ? `: ${c.description}` : '';
+          return `- [${c.id}] ${c.from} → ${c.to}${desc}`;
+        })
+        .join('\n')}`,
+    );
+  }
+
+  parts.push(
+    'Continue the conversation from here. Use ONLY this library pack and passages; cite [id]s; do not invent books.',
+  );
   return parts.join('\n\n');
 }
 
@@ -140,12 +202,23 @@ export async function runEchoes(
     status: 'draft',
     seed,
     synthesis: text,
-    sources: toEchoSources(sources),
+    sources: toEchoSources(sources, retrieved.passages),
     books: retrieved.books?.map((b) => ({
       bookId: b.bookId,
       bookTitle: b.bookTitle,
       referenceId: b.referenceId,
       passageCount: b.passageCount,
+    })),
+    synthesisContext: retrieved.synthesisContext || retrieved.contextText,
+    passages: retrieved.passages?.map((p) => ({
+      id: p.id,
+      title: p.title,
+      bookId: p.bookId,
+      bookTitle: p.bookTitle,
+      referenceId: p.referenceId,
+      chunkId: p.chunkId,
+      snippet: p.snippet,
+      content: p.content,
     })),
     ideas: retrieved.ideas?.map((i) => ({
       id: i.id,
