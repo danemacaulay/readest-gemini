@@ -60,7 +60,8 @@ describe('runAskForNote', () => {
     );
   });
 
-  it('toasts error when saveNote returns false', async () => {
+  it('returns false without toasting when saveNote returns false', async () => {
+    // Caller (useSaveBooknoteNoteText) already toasts on save failure.
     const saveNote = vi.fn(async () => false);
     const toast = vi.fn();
     const ok = await runAskForNote(
@@ -81,11 +82,7 @@ describe('runAskForNote', () => {
     );
     expect(ok).toBe(false);
     expect(saveNote).toHaveBeenCalledWith('n1', 'Hello');
-    expect(toast).toHaveBeenCalledWith({
-      type: 'error',
-      message: 'Failed to save note. Please try again.',
-    });
-    expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'info' }));
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it('aborts when highlight cannot be created', async () => {

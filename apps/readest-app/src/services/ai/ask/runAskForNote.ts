@@ -22,13 +22,8 @@ export async function runAskForNote(input: AskRequest, deps: AskForNoteDeps): Pr
   try {
     const result = await ask(input, deps.askDeps);
     const saved = await deps.saveNote(target.id, result.answer);
-    if (!saved) {
-      deps.toast({
-        type: 'error',
-        message: deps.t('Failed to save note. Please try again.'),
-      });
-      return false;
-    }
+    // saveNote (useSaveBooknoteNoteText) already toasts on failure — don't double-toast.
+    if (!saved) return false;
     deps.toast({
       type: 'info',
       message: deps.t('Ask answer saved as note'),
