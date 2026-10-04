@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => {
     toast: vi.fn(),
     addAnnotation: vi.fn(),
     saveConfig: vi.fn(),
-    deleteEchoTrail: vi.fn(async () => undefined),
+    deleteEchoTrail: vi.fn(async (_store: unknown, _trailId: string) => undefined),
     // Mirrors the real store: `updateBooknotes` writes back whatever array
     // it's called with (production code now returns a new array from
     // `updateBooknoteNoteText` instead of mutating the existing one).
@@ -90,7 +90,7 @@ vi.mock('@/services/echoes/echoSync', async () => {
   );
   return {
     ...actual,
-    deleteEchoTrail: (...args: unknown[]) => mocks.deleteEchoTrail(...args),
+    deleteEchoTrail: (store: unknown, trailId: string) => mocks.deleteEchoTrail(store, trailId),
   };
 });
 
@@ -227,9 +227,8 @@ describe('BooknoteItem', () => {
     fireEvent.click(screen.getByLabelText('Delete'));
     expect(mocks.updateBooknotes).toHaveBeenCalled();
     await vi.waitFor(() => {
-      expect(mocks.deleteEchoTrail).toHaveBeenCalled();
+      expect(mocks.deleteEchoTrail).toHaveBeenCalledWith(expect.anything(), 'trail-1');
     });
-    expect(mocks.deleteEchoTrail.mock.calls[0]?.[1]).toBe('trail-1');
   });
 
   it('shows Add Note on a bare highlight and saves a new note inline', async () => {
