@@ -25,6 +25,7 @@ import {
   type RetrievalBackend,
   type SourceItem,
 } from '@/services/ai/adapters';
+import type { BookContextInput } from '@/services/ai/adapters/bookContext';
 import { tauriRunCommand } from '@/services/ai/ask/runCommand';
 import type { EmbeddingProgress, AISettings, AIMessage } from '@/services/ai/types';
 import type { RetrievedChunk } from '@/services/reedy/retrieval/BookRetriever';
@@ -32,6 +33,12 @@ import { useEnv } from '@/context/EnvContext';
 import { isTauriAppPlatform } from '@/services/environment';
 import type { AppService } from '@/types/system';
 import type { ChatModelAdapter } from '@assistant-ui/react';
+import {
+  formatDescription,
+  formatPublisher,
+  getContributorNames,
+  getSeriesIndex,
+} from '@/utils/book';
 
 import { Button } from '@/components/ui/button';
 import { Loader2Icon, BookOpenIcon } from 'lucide-react';
@@ -128,10 +135,12 @@ const AntigravityAIAssistantChat = ({
   aiSettings,
   bookTitle,
   authorName,
+  bookContext,
 }: {
   aiSettings: AISettings;
   bookTitle: string;
   authorName: string;
+  bookContext: BookContextInput;
 }) => {
   const { activeConversationId, conversations, setAgyConversationId } = useAIChatStore();
   const { historyAdapter, isLoadingHistory, hasActiveConversation } = useThreadHistoryAdapter();
@@ -145,6 +154,7 @@ const AntigravityAIAssistantChat = ({
     settings: aiSettings,
     bookTitle,
     authorName,
+    bookContext,
     agyConversationId,
     onAgyConversationId: (id: string) => {
       if (activeConversationId) {
@@ -159,6 +169,7 @@ const AntigravityAIAssistantChat = ({
       settings: aiSettings,
       bookTitle,
       authorName,
+      bookContext,
       agyConversationId,
       onAgyConversationId: (id: string) => {
         if (activeConversationId) {
@@ -367,8 +378,31 @@ const AntigravityNotebookAssistant = ({ bookKey }: AIAssistantProps) => {
   const getBookData = useBookDataStore((s) => s.getBookData);
   const bookData = getBookData(bookKey);
   const aiSettings = settings?.aiSettings;
-  const bookTitle = bookData?.book?.title || 'Unknown';
-  const authorName = bookData?.book?.author || '';
+  const book = bookData?.book;
+  const metadata = book?.metadata;
+  const bookTitle = book?.title || 'Unknown';
+  const authorName = book?.author || '';
+
+  // Prefer the same display helpers used elsewhere so language maps /
+  // contributor objects become plain strings for the adapter pack.
+  const bookContext = useMemo<BookContextInput>(() => {
+    const series =
+      typeof metadata?.series === 'string' ? metadata.series.trim() || undefined : undefined;
+    const subjects = getContributorNames(metadata?.subject);
+    const publisher = formatPublisher(metadata?.publisher || '').trim() || undefined;
+    const description = formatDescription(metadata?.description) || undefined;
+    return {
+      title: bookTitle,
+      author: authorName || undefined,
+      tags: book?.tags?.length ? book.tags : undefined,
+      series,
+      seriesIndex: getSeriesIndex(metadata?.seriesIndex),
+      publisher,
+      published: metadata?.published?.trim() || undefined,
+      subjects: subjects.length ? subjects : undefined,
+      description,
+    };
+  }, [book?.tags, bookTitle, authorName, metadata]);
 
   if (!aiSettings?.enabled) {
     return (
@@ -383,6 +417,7 @@ const AntigravityNotebookAssistant = ({ bookKey }: AIAssistantProps) => {
       aiSettings={aiSettings}
       bookTitle={bookTitle}
       authorName={authorName}
+      bookContext={bookContext}
     />
   );
 };
