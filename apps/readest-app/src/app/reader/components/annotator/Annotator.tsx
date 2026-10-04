@@ -1779,7 +1779,26 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       selection.href = progress.sectionHref;
     }
 
+    // Create the highlight while selection is still live, then dismiss UI
+    // immediately so the agy wait does not leave the selection chrome up.
+    const created = handleHighlight(true);
+    const target =
+      created[0] ??
+      getConfig(bookKey)?.booknotes?.find(
+        (a) => a.type === 'annotation' && a.cfi === selectionCfi && !a.deletedAt,
+      );
     setShowAskComposer(false);
+    if (!target) {
+      askInFlightRef.current = false;
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: _('Could not create note anchor.'),
+        timeout: 2000,
+      });
+      handleDismissPopupAndSelection();
+      return;
+    }
+    handleDismissPopupAndSelection();
 
     void (async () => {
       try {
@@ -1798,15 +1817,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
               runCommand: tauriRunCommand,
               agyPath: ai.agyPath || DEFAULT_AI_SETTINGS.agyPath,
             },
-            ensureHighlight: () => {
-              const created = handleHighlight(true);
-              return (
-                created[0] ??
-                getConfig(bookKey)?.booknotes?.find(
-                  (a) => a.type === 'annotation' && a.cfi === selectionCfi && !a.deletedAt,
-                )
-              );
-            },
+            ensureHighlight: () => target,
             saveNote: (id, note) => saveBooknoteNoteText(id, note),
             toast: (opts) => eventDispatcher.dispatch('toast', { ...opts, timeout: 2000 }),
             t: _,
@@ -1814,7 +1825,6 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
         );
       } finally {
         askInFlightRef.current = false;
-        handleDismissPopupAndSelection();
       }
     })();
   };

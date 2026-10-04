@@ -339,6 +339,38 @@ describe('Annotator Ask → note', () => {
         t: expect.any(Function),
       }),
     );
+    // Highlight is created before runAskForNote; ensureHighlight is a no-op return.
+    const deps = h.runAskForNote.mock.calls[0]![1] as {
+      ensureHighlight: () => { id: string } | undefined;
+    };
+    expect(deps.ensureHighlight()?.id).toBeTruthy();
+    expect(h.config.booknotes.some((n) => n.type === 'annotation' && !n.deletedAt)).toBe(true);
+  });
+
+  test('dismisses selection UI before headless Ask awaits', async () => {
+    let resolveAsk!: (value: boolean) => void;
+    let deselectBeforeAskResolved = false;
+    h.runAskForNote.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          deselectBeforeAskResolved = h.deselect.mock.calls.length > 0;
+          resolveAsk = resolve;
+        }),
+    );
+
+    await openAskComposer();
+    await act(async () => {
+      screen.getByText('stub-ask-submit').click();
+    });
+
+    expect(h.deselect).toHaveBeenCalled();
+    expect(deselectBeforeAskResolved).toBe(true);
+    expect(screen.queryByTestId('ask-composer')).toBeNull();
+    expect(screen.queryByTestId('annot-popup')).toBeNull();
+
+    await act(async () => {
+      resolveAsk(true);
+    });
   });
 
   test('second Ask while in-flight does not call runAskForNote again', async () => {
