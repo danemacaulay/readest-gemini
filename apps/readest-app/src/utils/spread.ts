@@ -111,8 +111,16 @@ export const trackWidePages = <L extends { loadBlob: (name: string) => Promise<u
       loadBlob: async (name: string) => {
         const blob = await loader.loadBlob(name);
         const section = sections.find((s) => s.id === name);
-        if (blob instanceof Blob && section && section.pageSpread !== 'center') {
-          const size = getImageSize(new Uint8Array(await blob.slice(0, HEAD_LIMIT).arrayBuffer()));
+        // Duck-type: zip.js Blobs can be cross-realm, so `instanceof Blob` is false in jsdom.
+        const readable =
+          !!blob &&
+          typeof blob === 'object' &&
+          typeof (blob as Blob).slice === 'function' &&
+          typeof (blob as Blob).arrayBuffer === 'function';
+        if (readable && section && section.pageSpread !== 'center') {
+          const size = getImageSize(
+            new Uint8Array(await (blob as Blob).slice(0, HEAD_LIMIT).arrayBuffer()),
+          );
           if (size && size.width > size.height) {
             section.pageSpread = 'center';
             onFound?.(getWidePages(sections));
