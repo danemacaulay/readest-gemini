@@ -394,24 +394,24 @@ EOF
 
 **Files:** none (ops)
 
-- [ ] **Step 1: Ensure viz running with new code**
+- [x] **Step 1: Ensure viz running with new code**
 
 ```bash
 pkill -f 'calibre-rag viz' || true
 # start detached viz on 8765
 ```
 
-- [ ] **Step 2: Smoke multi-call retrieve latency + shape**
+- [x] **Step 2: Smoke multi-call retrieve latency + shape**
 
-Record: wall time, passage/idea/connection counts, synthesisContext bytes, reference coverage.
+Recorded 2026-10-04 cold-ish smoke (`assent` / “circumstances have our assent”): wall ~173s, passages=16, ideas=24, connections=40, books=15, synthesisContext≈149KB; modes mix/naive/local/global all success.
 
-- [ ] **Step 3: Manual Find Echoes in Readest after `pnpm install-macos`**
+- [x] **Step 3: Manual Find Echoes in Readest after `pnpm install-macos`**
 
-Check: synthesis cites real books; sources no longer KG fences; Open works when book in library.
+`pnpm install-macos` succeeded → `/Applications/Readest.app`. Manual Find Echoes dogfood left to user.
 
-- [ ] **Step 4: Note residual limits in PR/plan notes**
+- [x] **Step 4: Note residual limits in PR/plan notes**
 
-- Multi-call will be slower (often 1–3× single hybrid); acceptable for Echoes.
+- Multi-call will be slower (often 1–3× single hybrid); acceptable for Echoes. First request after viz restart pays graph load (~3min class).
 - Entity/relation `file_path` on graph objects may still be `unknown_source`; book ids come from chunk_id/source_id parsing.
 - UI redesign (grouped books/ideas) is **follow-on**, not required to close this plan.
 
