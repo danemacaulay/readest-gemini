@@ -36,7 +36,7 @@ type EchoIdeaChipsProps = {
 export const EchoIdeaChips: React.FC<EchoIdeaChipsProps> = ({ ideas, className }) => {
   if (ideas.length === 0) return null;
   return (
-    <ul className={clsx('flex flex-wrap gap-1.5', className)} role='list'>
+    <ul className={clsx('flex flex-wrap gap-1.5', className)}>
       {ideas.map((idea) => (
         <li key={idea.id} className='max-w-full'>
           <span className={ideaChipClassName(idea.type)} title={ideaTooltip(idea)}>

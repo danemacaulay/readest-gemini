@@ -80,7 +80,7 @@ tests/test_retrieve.py
 - [ ] **Step 1: Import upstream**
 
 ```bash
-cd /Users/danemacaulay/projects/reader
+cd $HOME/projects/reader
 # Prefer sparse history; keep AGPL LICENSE from upstream
 git remote add readest https://github.com/readest/readest.git
 git fetch readest main
@@ -618,7 +618,7 @@ git commit -am "feat(ai): wire Tauri shell runner and Antigravity/LightRAG setti
 
 ### Task 6: lib-rag `POST /api/retrieve` (sibling repo)
 
-**Files (in `/Users/danemacaulay/projects/lib-rag`):**
+**Files (in `$HOME/projects/lib-rag`):**
 - Create: `src/calibre_rag/retrieve.py`
 - Create: `tests/test_retrieve.py`
 - Modify: `src/calibre_rag/viz/server.py`

@@ -9,6 +9,7 @@ vi.mock('@/services/echoes/createEchoStub', () => ({
   createEchoBookNoteStub: (...args: unknown[]) => createEchoBookNoteStub(...args),
 }));
 
+import type { completeWithAntigravity } from '@/services/ai/ask/antigravityClient';
 import { createMemoryEchoStore } from '@/services/echoes/echoStore';
 import { buildEchoesPrompt } from '@/services/echoes/promptBuilder';
 import {
@@ -18,6 +19,8 @@ import {
   runEchoes,
 } from '@/services/echoes/runEchoes';
 import type { EchoTrail } from '@/services/echoes/types';
+
+type CompleteFn = typeof completeWithAntigravity;
 
 describe('buildEchoesPrompt', () => {
   it('requires citing provided source ids and forbids inventing books', () => {
@@ -105,7 +108,7 @@ describe('runEchoes', () => {
         lightragMode: 'hybrid',
         agyPath: 'agy',
       },
-      { retrieve, complete: complete as any, runCommand, store },
+      { retrieve, complete: complete as CompleteFn, runCommand, store },
     );
 
     expect(retrieve).toHaveBeenCalledWith(
@@ -145,7 +148,7 @@ describe('runEchoes', () => {
         lightragMode: 'hybrid',
         agyPath: 'agy',
       },
-      { retrieve, complete: complete as any, runCommand: vi.fn(), store },
+      { retrieve, complete: complete as CompleteFn, runCommand: vi.fn(), store },
     );
 
     expect(trail.status).toBe('promoted');

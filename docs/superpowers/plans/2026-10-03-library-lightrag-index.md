@@ -57,7 +57,7 @@ tests/test_local_library.py
 
 ### Task 1: lib-rag local library mode
 
-**Files (in `/Users/danemacaulay/projects/lib-rag`):**
+**Files (in `$HOME/projects/lib-rag`):**
 - Modify: `src/calibre_rag/config.py`
 - Modify: `src/calibre_rag/sync.py`
 - Modify: `config.yaml`, `config.example.yaml`
@@ -188,7 +188,7 @@ def sync_book_folder(cfg: Config, book: BookRecord) -> tuple[Path, str]:
 ```yaml
 paths:
   # When set, catalog + book files come from this Calibre library (no Pi sync).
-  local_library: "/Users/danemacaulay/My Drive/Books/calibre"
+  local_library: "$HOME/My Drive/Books/calibre"
   library_mirror: ./cache/calibre-library
   catalog_cache: ./cache/metadata.db
   # ...
@@ -426,7 +426,7 @@ In both `shell:allow-spawn` and `shell:allow-execute` `allow` arrays in `default
 },
 {
   "name": "calibre-rag-venv",
-  "cmd": "/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag",
+  "cmd": "$HOME/projects/lib-rag/.venv/bin/calibre-rag",
   "args": true
 }
 ```
@@ -436,7 +436,7 @@ Note: `calibre-rag-venv` is the reliable absolute entry for this machine; UI def
 Update resolver:
 
 ```typescript
-const VENV_CALIBRE_RAG = '/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag';
+const VENV_CALIBRE_RAG = '$HOME/projects/lib-rag/.venv/bin/calibre-rag';
 
 export function resolveCalibreShellScope(kind: 'calibredb' | 'calibre-rag', configured: string): string {
   const trimmed = (configured || '').trim();
@@ -469,11 +469,11 @@ Add three text inputs under the existing LightRAG / Antigravity section (same sa
 - calibredb path
 - calibre-rag command
 
-Default `calibreRagCmd` in UI hint: `/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag`
+Default `calibreRagCmd` in UI hint: `$HOME/projects/lib-rag/.venv/bin/calibre-rag`
 
 Also extend `mergeAgyPathEnv` usage OR add `mergeCalibreRagPathEnv` in `runCommand` spawn env to prepend:
 
-- `/Users/danemacaulay/projects/lib-rag/.venv/bin`
+- `$HOME/projects/lib-rag/.venv/bin`
 - `/Applications/calibre.app/Contents/MacOS`
 
 so the bare `calibre-rag` / PATH resolves when the venv is on disk.
@@ -721,7 +721,7 @@ Ensure `~/projects/lib-rag/config.yaml` has:
 
 ```yaml
 paths:
-  local_library: "/Users/danemacaulay/My Drive/Books/calibre"
+  local_library: "$HOME/My Drive/Books/calibre"
 ```
 
 - [ ] **Step 2: Run viz (for status badges)**
@@ -747,7 +747,7 @@ Import Directory → Calibre path → **Read in place** ON → Flatten → EPUB 
 2. Right-click book → **Add to LightRAG index**  
 3. Badge shows spinner then check  
 4. Confirm tag:  
-   `/Applications/calibre.app/Contents/MacOS/calibredb --with-library="/Users/danemacaulay/My Drive/Books/calibre" show_metadata <id> | rg Tags`  
+   `/Applications/calibre.app/Contents/MacOS/calibredb --with-library="$HOME/My Drive/Books/calibre" show_metadata <id> | rg Tags`  
 5. Confirm manifest: `calibre-rag status`  
 6. Non-Calibre book (no `(id)` path) → no menu item / no badge  
 7. Bad `calibreRagCmd` → toast, badge clears  

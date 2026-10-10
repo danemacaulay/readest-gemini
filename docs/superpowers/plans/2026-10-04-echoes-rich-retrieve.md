@@ -161,7 +161,7 @@ def test_rank_ideas_prefers_seed_terms_and_concepts():
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/danemacaulay/projects/lib-rag && .venv/bin/pytest tests/test_echoes_retrieve.py -v`  
+Run: `cd $HOME/projects/lib-rag && .venv/bin/pytest tests/test_echoes_retrieve.py -v`  
 Expected: FAIL (module missing)
 
 - [ ] **Step 3: Implement helpers**
@@ -181,7 +181,7 @@ Expected: PASS
 - [ ] **Step 5: Commit (lib-rag)**
 
 ```bash
-cd /Users/danemacaulay/projects/lib-rag
+cd $HOME/projects/lib-rag
 git add src/calibre_rag/echoes_retrieve.py tests/test_echoes_retrieve.py
 git commit -m "$(cat <<'EOF'
 feat(echoes): add merge/rank helpers for rich retrieve

@@ -927,11 +927,11 @@ const AIPanel: React.FC = () => {
             className='input input-sm w-full'
             value={calibreRagCmd}
             onChange={(e) => setCalibreRagCmd(e.target.value)}
-            placeholder='/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag'
+            placeholder='$HOME/projects/lib-rag/.venv/bin/calibre-rag'
           />
           <span className='text-base-content/60 text-xs'>
             {_(
-              'Tauri shell scope for lib-rag indexing CLI. Default calibre-rag uses PATH (venv + Calibre.app prepended at spawn). Set the venv absolute path for calibre-rag-venv.',
+              'Tauri shell scope for lib-rag indexing CLI. Uses the calibre-rag allowlist entry; venv bin is prepended to PATH at spawn.',
             )}
           </span>
         </div>

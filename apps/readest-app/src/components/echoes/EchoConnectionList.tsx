@@ -30,7 +30,7 @@ export const EchoConnectionList: React.FC<EchoConnectionListProps> = ({
 
   return (
     <div className={clsx('flex flex-col gap-1.5', className)}>
-      <ul className='flex flex-col gap-1' role='list'>
+      <ul className='flex flex-col gap-1'>
         {visible.map((edge) => {
           const tip = edge.description?.trim() || `${edge.from} → ${edge.to}`;
           return (

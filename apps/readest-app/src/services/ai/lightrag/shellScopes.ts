@@ -1,9 +1,13 @@
+import { homedir } from 'node:os';
+
 export const CALIBREDB_SCOPE = 'calibredb';
 export const CALIBRE_RAG_SCOPE = 'calibre-rag';
-export const CALIBRE_RAG_VENV_SCOPE = 'calibre-rag-venv';
+/** @deprecated Kept for PATH merges; shell allowlist uses `calibre-rag` only. */
+export const CALIBRE_RAG_VENV_SCOPE = CALIBRE_RAG_SCOPE;
 
-export const VENV_CALIBRE_RAG = '/Users/danemacaulay/projects/lib-rag/.venv/bin/calibre-rag';
-export const CALIBRE_RAG_VENV_BIN = '/Users/danemacaulay/projects/lib-rag/.venv/bin';
+/** Default local lib-rag venv layout under the current user's home (no hardcoded username). */
+export const CALIBRE_RAG_VENV_BIN = `${homedir()}/projects/lib-rag/.venv/bin`;
+export const VENV_CALIBRE_RAG = `${CALIBRE_RAG_VENV_BIN}/calibre-rag`;
 export const CALIBRE_APP_MACOS = '/Applications/calibre.app/Contents/MacOS';
 
 export function resolveCalibreShellScope(
@@ -18,14 +22,16 @@ export function resolveCalibreShellScope(
     return trimmed;
   }
 
-  if (trimmed === VENV_CALIBRE_RAG || trimmed.includes('/lib-rag/.venv/bin/calibre-rag')) {
-    return CALIBRE_RAG_VENV_SCOPE;
-  }
-  if (!trimmed || trimmed === CALIBRE_RAG_SCOPE) {
-    return CALIBRE_RAG_SCOPE;
-  }
-  if (trimmed.endsWith('/calibre-rag')) {
-    if (trimmed.includes('/lib-rag/')) return CALIBRE_RAG_VENV_SCOPE;
+  // Absolute venv paths resolve to the PATH-based `calibre-rag` allowlist entry
+  // (venv bin is prepended at spawn). Avoids baking a username into capabilities.
+  if (
+    !trimmed ||
+    trimmed === CALIBRE_RAG_SCOPE ||
+    trimmed === VENV_CALIBRE_RAG ||
+    trimmed.includes('/lib-rag/.venv/bin/calibre-rag') ||
+    (trimmed.endsWith('/calibre-rag') && trimmed.includes('/lib-rag/')) ||
+    trimmed.endsWith('/calibre-rag')
+  ) {
     return CALIBRE_RAG_SCOPE;
   }
   return trimmed;

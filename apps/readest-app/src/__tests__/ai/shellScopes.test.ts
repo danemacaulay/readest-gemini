@@ -31,8 +31,8 @@ describe('resolveCalibreShellScope', () => {
       expect(resolveCalibreShellScope('calibre-rag', 'calibre-rag')).toBe(CALIBRE_RAG_SCOPE);
     });
 
-    it('maps venv absolute path to calibre-rag-venv', () => {
-      expect(resolveCalibreShellScope('calibre-rag', VENV_CALIBRE_RAG)).toBe('calibre-rag-venv');
+    it('maps venv absolute path to calibre-rag (PATH + allowlist name)', () => {
+      expect(resolveCalibreShellScope('calibre-rag', VENV_CALIBRE_RAG)).toBe(CALIBRE_RAG_SCOPE);
     });
   });
 });
@@ -40,7 +40,7 @@ describe('resolveCalibreShellScope', () => {
 describe('mergeCalibreToolPathEnv', () => {
   it('prepends lib-rag venv bin and Calibre.app MacOS', () => {
     const prefixes = calibreToolPathPrefixes();
-    expect(prefixes[0]).toBe('/Users/danemacaulay/projects/lib-rag/.venv/bin');
+    expect(prefixes[0]).toMatch(/\/projects\/lib-rag\/\.venv\/bin$/);
     expect(prefixes[1]).toBe('/Applications/calibre.app/Contents/MacOS');
 
     const merged = mergeCalibreToolPathEnv('/usr/bin:/bin');
