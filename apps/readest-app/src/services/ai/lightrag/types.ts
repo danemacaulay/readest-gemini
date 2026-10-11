@@ -45,6 +45,8 @@ export type EchoesConnection = {
   to: string;
   description?: string;
   bookIds?: number[];
+  /** Optional 0–1 confidence from the retrieve payload; never invented client-side. */
+  confidence?: number;
 };
 
 export type LightRAGRetrieveResult = {

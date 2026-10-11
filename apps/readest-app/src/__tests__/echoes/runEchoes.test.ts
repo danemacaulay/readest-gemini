@@ -12,6 +12,7 @@ vi.mock('@/services/echoes/createEchoStub', () => ({
 import type { completeWithAntigravity } from '@/services/ai/ask/antigravityClient';
 import { createMemoryEchoStore } from '@/services/echoes/echoStore';
 import { buildEchoesPrompt } from '@/services/echoes/promptBuilder';
+import { EchoesDeferredError } from '@/services/echoes/EchoesDeferredError';
 import {
   buildContinueEchoChatPayload,
   buildEchoChatPreamble,
@@ -82,6 +83,7 @@ describe('runEchoes', () => {
           snippet: 'obstacle…',
           bookId: '42',
           bookTitle: 'Epictetus',
+          score: 0.82,
         },
       ],
       contextText: 'library ctx',
@@ -126,6 +128,9 @@ describe('runEchoes', () => {
     expect(trail.seed).not.toHaveProperty('annotationIsNew');
     expect(trail.synthesis).toContain('Comparative take');
     expect(trail.sources[0]?.bookId).toBe('42');
+    expect(trail.sources[0]?.score).toBe(0.82);
+    expect(trail.trace?.deferred).toBe(false);
+    expect(trail.trace?.retrieved.map((e) => e.id)).toEqual(['s1']);
     expect(trail.agyConversationId).toBe('agy-1');
     expect(createEchoBookNoteStub).not.toHaveBeenCalled();
     expect(await store.get(trail.id)).toEqual(trail);
@@ -134,7 +139,10 @@ describe('runEchoes', () => {
   it('upserts promoted without noteId when annotationId is missing', async () => {
     createEchoBookNoteStub.mockClear();
     const store = createMemoryEchoStore();
-    const retrieve = vi.fn(async () => ({ sources: [], contextText: '' }));
+    const retrieve = vi.fn(async () => ({
+      sources: [{ id: 's1', title: 'T', snippet: 'x' }],
+      contextText: '',
+    }));
     const complete = vi.fn(async () => ({ text: 'Take.', conversationId: 'agy-2' }));
 
     const trail = await runEchoes(
@@ -154,6 +162,38 @@ describe('runEchoes', () => {
     expect(trail.status).toBe('promoted');
     expect(trail.noteId).toBeUndefined();
     expect(createEchoBookNoteStub).not.toHaveBeenCalled();
+  });
+
+  it('defers when every source is below the score threshold', async () => {
+    const store = createMemoryEchoStore();
+    const retrieve = vi.fn(async () => ({
+      sources: [
+        { id: 'low', title: 'Weak', snippet: '…', score: 0.05 },
+        { id: 'also', title: 'Also weak', snippet: '…', score: 0.2 },
+      ],
+      contextText: 'ctx',
+    }));
+    const complete = vi.fn(async () => ({ text: 'should not run', conversationId: 'x' }));
+
+    await expect(
+      runEchoes(
+        {
+          bookHash: 'hash-1',
+          bookTitle: 'Meditations',
+          seedText: 'The impediment…',
+          annotationId: 'anno-1',
+        },
+        {
+          lightragBaseUrl: 'http://127.0.0.1:8765',
+          lightragMode: 'hybrid',
+          agyPath: 'agy',
+        },
+        { retrieve, complete: complete as CompleteFn, runCommand: vi.fn(), store },
+      ),
+    ).rejects.toBeInstanceOf(EchoesDeferredError);
+
+    expect(complete).not.toHaveBeenCalled();
+    expect(await store.list()).toEqual([]);
   });
 });
 

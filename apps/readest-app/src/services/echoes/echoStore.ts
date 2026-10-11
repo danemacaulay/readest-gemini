@@ -98,6 +98,7 @@ function createStoreFromState(
         passages: input.passages,
         ideas: input.ideas,
         connections: input.connections,
+        trace: input.trace,
         createdAt: input.createdAt ?? now,
         updatedAt: input.updatedAt ?? now,
         agyConversationId: input.agyConversationId,
