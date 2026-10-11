@@ -1,3 +1,5 @@
+import type { AskRegister } from '@/types/book';
+
 export type AskRequest = {
   bookHash: string;
   bookTitle: string;
@@ -7,6 +9,6 @@ export type AskRequest = {
 };
 
 export type AskResult = {
-  answer: string;
+  registers: AskRegister[];
   truncatedSelection: boolean;
 };

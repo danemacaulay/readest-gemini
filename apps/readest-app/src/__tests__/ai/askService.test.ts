@@ -2,23 +2,19 @@ import { describe, it, expect, vi } from 'vitest';
 import { runAsk } from '../../services/ai/ask/askService';
 
 describe('runAsk', () => {
-  it('completes without retrieve and returns trimmed answer', async () => {
-    const complete = vi.fn(async () => ({ text: '  Answer text  \n', conversationId: 'c1' }));
-    const result = await runAsk(
-      {
-        bookHash: 'h1',
-        bookTitle: 'Book',
-        bookAuthor: 'Author',
-        selectionText: 'sel',
-      },
-      { complete: complete as never, agyPath: 'agy' },
+  it('builds the prompt, calls complete in sandbox, and returns parsed registers', async () => {
+    const complete = vi.fn(async () => ({
+      text: '## What\nA.\n## How\nB.\n## Why\nC.\n## Should\nD.',
+    }));
+    const res = await runAsk(
+      { bookHash: 'h', bookTitle: 'T', selectionText: 'sel' },
+      { complete: complete as never, runCommand: vi.fn() as never, agyPath: 'agy' },
     );
-    expect(complete).toHaveBeenCalledOnce();
+    expect(res.registers.map((r) => r.text)).toEqual(['A.', 'B.', 'C.', 'D.']);
+    expect(res.truncatedSelection).toBe(false);
     expect(complete).toHaveBeenCalledWith(
-      expect.stringContaining('Author'),
+      expect.stringContaining('## Should'),
       expect.objectContaining({ sandbox: true, skipPermissions: false }),
     );
-    expect(result.answer).toBe('Answer text');
-    expect(result.truncatedSelection).toBe(false);
   });
 });

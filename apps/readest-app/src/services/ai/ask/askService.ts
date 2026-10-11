@@ -1,4 +1,5 @@
 import { buildAskPrompt } from './promptBuilder';
+import { parseAskRegisters } from './parseAskRegisters';
 import type { AskRequest, AskResult } from './types';
 import { completeWithAntigravity, type RunCommand } from './antigravityClient';
 
@@ -23,7 +24,7 @@ export async function runAsk(req: AskRequest, deps: AskDeps): Promise<AskResult>
     skipPermissions: false,
   });
   return {
-    answer: text.trim(),
+    registers: parseAskRegisters(text.trim()),
     truncatedSelection: built.truncatedSelection,
   };
 }

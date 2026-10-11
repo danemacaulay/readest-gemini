@@ -2,7 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { buildAskPrompt, SELECTION_CHAR_LIMIT } from '../../services/ai/ask/promptBuilder';
 
 describe('buildAskPrompt', () => {
-  it('includes book, author, quote, and expand+argue instructions', () => {
+  it('asks for the four registers under fixed headings', () => {
+    const { prompt } = buildAskPrompt({ bookTitle: 'B', selectionText: 'q' });
+    expect(prompt).toContain('## What');
+    expect(prompt).toContain('## How');
+    expect(prompt).toContain('## Why');
+    expect(prompt).toContain('## Should');
+    expect(prompt).toContain('What the passage says');
+    expect(prompt).toContain('Where it is wrong');
+    expect(prompt).not.toContain('Expand:');
+    expect(prompt).toContain('Do not use tools');
+  });
+
+  it('includes book, author, and quote', () => {
     const result = buildAskPrompt({
       bookTitle: 'Example Book',
       bookAuthor: 'Jane Doe',
@@ -11,9 +23,6 @@ describe('buildAskPrompt', () => {
     expect(result.prompt).toContain('Example Book');
     expect(result.prompt).toContain('Jane Doe');
     expect(result.prompt).toContain('Some passage');
-    expect(result.prompt).toMatch(/1\) Expand/);
-    expect(result.prompt).toMatch(/2\) Argue/);
-    expect(result.prompt.toLowerCase()).toMatch(/do not use tools/);
     expect(result.prompt).not.toContain('Question:');
     expect(result.truncatedSelection).toBe(false);
   });
