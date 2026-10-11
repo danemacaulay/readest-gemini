@@ -2,14 +2,17 @@ import { describe, it, expect } from 'vitest';
 import { buildAskPrompt, SELECTION_CHAR_LIMIT } from '../../services/ai/ask/promptBuilder';
 
 describe('buildAskPrompt', () => {
-  it('asks for the four registers under fixed headings', () => {
+  it('asks for the five registers under fixed headings', () => {
     const { prompt } = buildAskPrompt({ bookTitle: 'B', selectionText: 'q' });
     expect(prompt).toContain('## What');
     expect(prompt).toContain('## How');
     expect(prompt).toContain('## Why');
     expect(prompt).toContain('## Should');
+    expect(prompt).toContain('## Argue');
     expect(prompt).toContain('What the passage says');
     expect(prompt).toContain('Where it is wrong');
+    expect(prompt).toContain('steelman the claim');
+    expect(prompt).toContain('genuine counterpoint');
     expect(prompt).not.toContain('Expand:');
     expect(prompt).toContain('Do not use tools');
   });

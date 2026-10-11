@@ -47,6 +47,7 @@ describe('updateAskRegisterFeedback', () => {
       { kind: 'how', text: 'B' },
       { kind: 'why', text: 'C' },
       { kind: 'should', text: 'D' },
+      { kind: 'argue', text: 'E' },
     ],
   };
 

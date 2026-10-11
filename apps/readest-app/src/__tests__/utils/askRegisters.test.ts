@@ -8,13 +8,14 @@ describe('renderAskRegistersMarkdown', () => {
       { kind: 'how', text: 'By analogy.' },
       { kind: 'why', text: 'To set up ch. 3.' },
       { kind: 'should', text: 'Overstated.' },
+      { kind: 'argue', text: 'Steelmans, then counters.' },
     ]);
     expect(body).toBe(
-      '**What**\n\nA claim.\n\n**How**\n\nBy analogy.\n\n**Why**\n\nTo set up ch. 3.\n\n**Should**\n\nOverstated.',
+      '**What**\n\nA claim.\n\n**How**\n\nBy analogy.\n\n**Why**\n\nTo set up ch. 3.\n\n**Should**\n\nOverstated.\n\n**Argue**\n\nSteelmans, then counters.',
     );
   });
 
-  it('exposes the four kinds in order', () => {
-    expect([...ASK_REGISTER_KINDS]).toEqual(['what', 'how', 'why', 'should']);
+  it('exposes the five kinds in order', () => {
+    expect([...ASK_REGISTER_KINDS]).toEqual(['what', 'how', 'why', 'should', 'argue']);
   });
 });

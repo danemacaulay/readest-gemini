@@ -493,6 +493,7 @@ describe('BooknoteItem ask registers', () => {
     { kind: 'how' as const, text: 'By Y.' },
     { kind: 'why' as const, text: 'Because Z.' },
     { kind: 'should' as const, text: 'Mostly right.' },
+    { kind: 'argue' as const, text: 'Steelman, then tension.' },
   ];
 
   it('shows an empty-note placeholder above read-only registers after Ask', () => {
@@ -500,7 +501,8 @@ describe('BooknoteItem ask registers', () => {
     expect(screen.getByText('Add your thoughts…')).toBeTruthy();
     expect(screen.getByText('Ask · read only')).toBeTruthy();
     expect(screen.getByText('Says X.')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Like' })).toHaveLength(4);
+    expect(screen.getByText('Argue')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Like' })).toHaveLength(5);
   });
 
   it('shows the human note above registers after the reader writes', () => {

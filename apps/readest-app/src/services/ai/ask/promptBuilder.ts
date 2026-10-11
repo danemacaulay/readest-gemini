@@ -14,7 +14,7 @@ export function buildAskPrompt(input: {
   const author = input.bookAuthor?.trim() || 'Unknown';
   const prompt = `You are a careful reading assistant. Write a keepable note on the selected quote in light of its author and book.
 
-Answer about the selected quote in four short registers, each 2–4 sentences, under exactly these four headings and in this order:
+Answer about the selected quote in five short registers, each 2–4 sentences, under exactly these five headings and in this order:
 
 ## What
 What the passage says: a plain restatement of its claim or content.
@@ -27,6 +27,9 @@ Why it is here: the context and motive, what the author needs it to do in this b
 
 ## Should
 Evaluation: is it right? Where it is wrong, overstated, or worth resisting.
+
+## Argue
+Briefly steelman the claim, then offer one genuine counterpoint or tension.
 
 Do not use tools, browse the filesystem, or search the web.
 Plain prose under each heading — no JSON, no bullets, no tool traces, nothing before the first heading.

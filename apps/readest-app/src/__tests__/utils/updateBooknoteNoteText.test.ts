@@ -184,6 +184,7 @@ describe('updateBooknoteNoteText', () => {
     { kind: 'how' as const, text: 'B' },
     { kind: 'why' as const, text: 'C' },
     { kind: 'should' as const, text: 'D' },
+    { kind: 'argue' as const, text: 'E' },
   ];
 
   it('writes askRegisters when provided without requiring note text', () => {

@@ -13,7 +13,7 @@ One-tap Ask runs a single fixed "expand + argue" prompt and writes one paragraph
 
 ## Goals
 
-1. **Four registers per Ask.** Ask returns four short, labelled passages about the selection: What, How, Why, Should. All four persist as structured, **read-only** data on the annotation.
+1. **Five registers per Ask.** Ask returns five short, labelled passages about the selection: What, How, Why, Should, Argue (steelman then counterpoint). All five persist as structured, **read-only** data on the annotation.
 2. **Your note stays yours.** `BookNote.note` is never filled by Ask. It stays empty until you write; the sidebar shows an editable field (placeholder) above the agent block.
 3. **Per-register feedback.** Each register carries a reaction row: 👍 like, 👎 dislike, ✅ correct, ❌ incorrect, 💬 propose. Reactions and proposals persist with the register.
 
@@ -31,8 +31,8 @@ One-tap Ask runs a single fixed "expand + argue" prompt and writes one paragraph
 
 | Decision | Choice | Why |
 | --- | --- | --- |
-| Call shape | One agy call; prompt asks for four `## What` / `## How` / `## Why` / `## Should` sections | Cheapest, one process spawn; headings parse robustly across models |
-| Parse strictness | All four sections required, else `AskParseError` → existing failure path (toast, placeholder removed) | A partial answer silently saved defeats the feature; the error is retryable |
+| Call shape | One agy call; prompt asks for five `## What` / `## How` / `## Why` / `## Should` / `## Argue` sections | Cheapest, one process spawn; headings parse robustly across models |
+| Parse strictness | All five sections required, else `AskParseError` → existing failure path (toast, placeholder removed) | A partial answer silently saved defeats the feature; the error is retryable |
 | Dual layers | `askRegisters` = read-only agent answer; `note` = human writing only | Approved mockup: empty editable note on top, agent block below |
 | Ask write path | On success: set `askRegisters`, leave `note` empty (or untouched if already set), `contribution: 'ai'` | Agent text must not become the note body |
 | Hand-edit of `note` | Existing save path; if `askRegisters` present and `note` becomes non-empty, `contribution` → `co-authored` | Matches the ledger: both layers present |
@@ -48,7 +48,7 @@ One-tap Ask runs a single fixed "expand + argue" prompt and writes one paragraph
 ### `types/book.ts`
 
 ```ts
-export type AskRegisterKind = 'what' | 'how' | 'why' | 'should';
+export type AskRegisterKind = 'what' | 'how' | 'why' | 'should' | 'argue';
 
 export type AskRegisterFeedback = {
   rating?: 'like' | 'dislike';
@@ -90,14 +90,15 @@ Sync note: `useNotesSync.processNewNote` merges `{ ...existingNote, ...incoming 
 
 ## Prompt and parsing
 
-The prompt replaces the current "Expand / Argue" instructions with four headed sections, each 2–4 sentences, in a fixed order, prose only, nothing before the first heading. Register briefs (copied into the prompt verbatim):
+The prompt asks for five headed sections, each 2–4 sentences, in a fixed order, prose only, nothing before the first heading. Register briefs (copied into the prompt verbatim):
 
 - **What**: what the passage says, a plain restatement of its claim or content.
 - **How**: how it works, the structure of the argument or image and what it rests on.
 - **Why**: why it is here, the context and motive, what the author needs it to do in this book.
 - **Should**: evaluation, is it right, where it is wrong, overstated, or worth resisting.
+- **Argue**: briefly steelman the claim, then offer one genuine counterpoint or tension.
 
-Parser accepts `#`, `##`, or `###` headings, case-insensitive label, optional trailing punctuation, any order, and ignores ``` fence lines. Output is always in canonical order `what, how, why, should`. Missing or empty section → `AskParseError("Ask returned an incomplete answer. Try again.")`.
+Parser accepts `#`, `##`, or `###` headings, case-insensitive label, optional trailing punctuation, any order, and ignores ``` fence lines. Output is always in canonical order `what, how, why, should, argue`. Missing or empty section → `AskParseError("Ask returned an incomplete answer. Try again.")`.
 
 ## Product UI (annotations sidebar)
 

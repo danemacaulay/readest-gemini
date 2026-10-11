@@ -5,6 +5,7 @@ export const ASK_REGISTER_KINDS = [
   'how',
   'why',
   'should',
+  'argue',
 ] as const satisfies readonly AskRegisterKind[];
 
 export const ASK_REGISTER_LABELS: Record<AskRegisterKind, string> = {
@@ -12,6 +13,7 @@ export const ASK_REGISTER_LABELS: Record<AskRegisterKind, string> = {
   how: 'How',
   why: 'Why',
   should: 'Should',
+  argue: 'Argue',
 };
 
 /** Format registers as markdown for copy/export only — never written into `note`. */

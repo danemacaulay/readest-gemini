@@ -199,7 +199,7 @@ export interface TimeInfo {
 /** Local-only authorship of note body text. omit = human (legacy). Cloud sync may drop this field. */
 export type BookNoteContribution = 'human' | 'ai' | 'co-authored';
 
-export type AskRegisterKind = 'what' | 'how' | 'why' | 'should';
+export type AskRegisterKind = 'what' | 'how' | 'why' | 'should' | 'argue';
 
 export type AskRegisterFeedback = {
   rating?: 'like' | 'dislike';

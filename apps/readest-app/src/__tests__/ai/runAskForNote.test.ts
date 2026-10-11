@@ -7,6 +7,7 @@ const regs = [
   { kind: 'how' as const, text: 'B' },
   { kind: 'why' as const, text: 'C' },
   { kind: 'should' as const, text: 'D' },
+  { kind: 'argue' as const, text: 'E' },
 ];
 
 describe('runAskForNote', () => {

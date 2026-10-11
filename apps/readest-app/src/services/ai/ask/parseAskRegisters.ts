@@ -10,7 +10,7 @@ export class AskParseError extends Error {
   }
 }
 
-const HEADING_RE = /^#{1,3}\s*(what|how|why|should)\b[\s:.\-–—]*$/i;
+const HEADING_RE = /^#{1,3}\s*(what|how|why|should|argue)\b[\s:.\-–—]*$/i;
 const FENCE_RE = /^```(?:\w+)?\s*$/;
 
 export function parseAskRegisters(text: string): AskRegister[] {
