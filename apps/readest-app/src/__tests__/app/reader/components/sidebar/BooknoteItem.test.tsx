@@ -165,7 +165,7 @@ beforeEach(() => {
   mocks.appService.isMobile = false;
   mocks.appService.isIOSApp = false;
   mocks.isNotebookVisible = false;
-  useMetaWillUiStore.setState({ focusedSectionId: null });
+  useMetaWillUiStore.setState({ focusedSectionId: null, liveMetaWill: null });
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
 });
@@ -200,6 +200,7 @@ describe('BooknoteItem', () => {
               {
                 booknoteId: 'note-1',
                 excerpt: 'highlighted words',
+                chapterLabel: 'Chapter 1',
               },
             ],
           }),
