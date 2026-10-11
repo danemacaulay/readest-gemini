@@ -152,4 +152,30 @@ describe('updateBooknoteNoteText', () => {
 
     expect(result!.updatedBooknote.note).toBe('new text');
   });
+
+  it('sets contribution when options.contribution is provided', () => {
+    const booknotes = [makeBooknote({ id: 'note-1', note: 'old text' })];
+
+    const result = updateBooknoteNoteText(booknotes, 'note-1', 'new text', 5000, {
+      contribution: 'ai',
+    });
+
+    expect(result!.updatedBooknote.contribution).toBe('ai');
+  });
+
+  it('flips existing ai contribution to co-authored when options are omitted', () => {
+    const booknotes = [makeBooknote({ id: 'note-1', note: 'old text', contribution: 'ai' })];
+
+    const result = updateBooknoteNoteText(booknotes, 'note-1', 'edited by human', 5000);
+
+    expect(result!.updatedBooknote.contribution).toBe('co-authored');
+  });
+
+  it('leaves contribution unset when options are omitted and note had no contribution', () => {
+    const booknotes = [makeBooknote({ id: 'note-1', note: 'old text' })];
+
+    const result = updateBooknoteNoteText(booknotes, 'note-1', 'new text', 5000);
+
+    expect(result!.updatedBooknote.contribution).toBeUndefined();
+  });
 });
