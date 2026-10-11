@@ -6,8 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BooknoteItem from '@/app/reader/components/sidebar/BooknoteItem';
 import { BooknoteTimeProvider } from '@/app/reader/components/sidebar/BooknoteTime';
 import { BookNote } from '@/types/book';
-import { useMetaWillUiStore } from '@/store/metaWillUiStore';
-import { createEmptyMetaWill } from '@/utils/metaWill';
 import { eventDispatcher } from '@/utils/event';
 import { NOTE_PREFIX } from '@/types/view';
 
@@ -29,7 +27,6 @@ const mocks = vi.hoisted(() => {
     toast: vi.fn(),
     addAnnotation: vi.fn(),
     saveConfig: vi.fn(),
-    saveMetaWill: vi.fn(async () => true),
     deleteEchoTrail: vi.fn(async (_store: unknown, _trailId: string) => undefined),
     // Mirrors the real store: `updateBooknotes` writes back whatever array
     // it's called with (production code now returns a new array from
@@ -50,16 +47,8 @@ vi.mock('@/store/notebookStore', () => ({
   }),
 }));
 
-vi.mock('@/app/reader/hooks/useSaveNotebookMetaWill', () => ({
-  useSaveNotebookMetaWill: () => mocks.saveMetaWill,
-}));
-
 vi.mock('@/app/reader/utils/openEchoesSidebar', () => ({
   openEchoesSidebar: (...args: unknown[]) => mocks.openEchoesSidebar(...args),
-}));
-
-vi.mock('@/services/nav', () => ({
-  findTocItemBS: () => ({ href: 'ch1.html', label: 'Chapter 1' }),
 }));
 
 vi.mock('@/context/EnvContext', () => ({
@@ -83,7 +72,6 @@ vi.mock('@/store/readerStore', () => ({
 
 vi.mock('@/store/bookDataStore', () => ({
   useBookDataStore: () => ({
-    getBookData: () => ({ bookDoc: { toc: [] } }),
     getConfig: () => ({ booknotes: mocks.state.booknotes }),
     saveConfig: mocks.saveConfig,
     updateBooknotes: mocks.updateBooknotes,
@@ -165,9 +153,6 @@ beforeEach(() => {
   mocks.appService.isMobile = false;
   mocks.appService.isIOSApp = false;
   mocks.isNotebookVisible = false;
-  useMetaWillUiStore.setState({ focusedSectionId: null, liveMetaWill: null });
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
 });
 
 afterEach(() => {
@@ -176,84 +161,6 @@ afterEach(() => {
 });
 
 describe('BooknoteItem', () => {
-  it('on desktop, clicking an annotation while a meta-will section is focused appends a link', () => {
-    const annotation = makeItem();
-    const notebook = makeItem({
-      id: 'notebook',
-      type: 'notebook',
-      metaWill: createEmptyMetaWill(),
-    });
-    mocks.state.booknotes = [annotation, notebook];
-    mocks.isNotebookVisible = true;
-    useMetaWillUiStore.setState({ focusedSectionId: 'take' });
-    const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
-    renderItem(annotation);
-
-    fireEvent.click(screen.getByText('highlighted words'));
-
-    expect(mocks.saveMetaWill).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sections: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'take',
-            links: [
-              {
-                booknoteId: 'note-1',
-                excerpt: 'highlighted words',
-                chapterLabel: 'Chapter 1',
-              },
-            ],
-          }),
-        ]),
-      }),
-    );
-    expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
-  });
-
-  it.each([
-    ['native mobile app', true, 1024, 768],
-    ['narrow viewport', false, 639, 768],
-    ['short viewport', false, 1024, 639],
-  ])('on mobile (%s), clicking an annotation never appends a meta-will link', (_case, isMobile, width, height) => {
-    const annotation = makeItem();
-    const notebook = makeItem({
-      id: 'notebook',
-      type: 'notebook',
-      metaWill: createEmptyMetaWill(),
-    });
-    mocks.state.booknotes = [annotation, notebook];
-    mocks.isNotebookVisible = true;
-    mocks.appService.isMobile = isMobile;
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
-    useMetaWillUiStore.setState({ focusedSectionId: 'take' });
-    const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
-    renderItem(annotation);
-
-    fireEvent.click(screen.getByText('highlighted words'));
-
-    expect(mocks.saveMetaWill).not.toHaveBeenCalled();
-    expect(dispatch).toHaveBeenCalledWith('navigate', expect.anything());
-  });
-
-  it('with no focused meta-will section, clicking an annotation keeps navigate behavior', () => {
-    const annotation = makeItem();
-    const notebook = makeItem({
-      id: 'notebook',
-      type: 'notebook',
-      metaWill: createEmptyMetaWill(),
-    });
-    mocks.state.booknotes = [annotation, notebook];
-    mocks.isNotebookVisible = true;
-    const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
-    renderItem(annotation);
-
-    fireEvent.click(screen.getByText('highlighted words'));
-
-    expect(mocks.saveMetaWill).not.toHaveBeenCalled();
-    expect(dispatch).toHaveBeenCalledWith('navigate', expect.anything());
-  });
-
   it('refreshes the relative time every minute without remounting the item', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-20T10:00:00Z'));

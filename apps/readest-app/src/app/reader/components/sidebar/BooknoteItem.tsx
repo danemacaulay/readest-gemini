@@ -8,7 +8,6 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useNotebookStore } from '@/store/notebookStore';
 import { useBookDataStore } from '@/store/bookDataStore';
-import { useMetaWillUiStore } from '@/store/metaWillUiStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { useLongPress } from '@/hooks/useLongPress';
@@ -35,9 +34,6 @@ import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { setAskProposal, toggleAskReaction } from '@/utils/askRegisterFeedback';
 import { renderAskRegistersMarkdown } from '@/utils/askRegisters';
-import { findTocItemBS } from '@/services/nav';
-import { appendMetaWillLink } from '@/utils/metaWill';
-import { useSaveNotebookMetaWill } from '../../hooks/useSaveNotebookMetaWill';
 import { openEchoesSidebar } from '../../utils/openEchoesSidebar';
 
 interface BooknoteItemProps {
@@ -61,9 +57,9 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { settings } = useSettingsStore();
-  const { getBookData, getConfig, saveConfig, updateBooknotes } = useBookDataStore();
+  const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
-  const { isNotebookVisible, setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
+  const { setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
 
   const globalReadSettings = settings.globalReadSettings;
   const customColors = globalReadSettings.customHighlightColors;
@@ -76,7 +72,6 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const isEcho = item.type === 'echo' || !!parseEchoNoteRef(item.note ?? '');
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
   const saveAskFeedback = useSaveAskRegisterFeedback(bookKey);
-  const saveMetaWill = useSaveNotebookMetaWill(bookKey);
   const askRegisters = item.askRegisters;
   const hasAskRegisters = !!askRegisters?.length;
 
@@ -161,35 +156,6 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
     // don't hide the notebook (unpinned) or remount a reader for the same book.
     if (isEcho) {
       onClick?.();
-      return;
-    }
-    const { focusedSectionId, liveMetaWill } = useMetaWillUiStore.getState();
-    const isMobile =
-      appService?.isMobile === true || window.innerWidth < 640 || window.innerHeight < 640;
-    const notebook = getConfig(bookKey)?.booknotes?.find(
-      (note) =>
-        note.id === 'notebook' &&
-        note.type === 'notebook' &&
-        !note.deletedAt &&
-        note.metaWill !== undefined,
-    );
-    const baseMetaWill = liveMetaWill ?? notebook?.metaWill;
-    if (
-      !isMobile &&
-      isNotebookVisible &&
-      focusedSectionId &&
-      item.type === 'annotation' &&
-      baseMetaWill
-    ) {
-      const toc = getBookData(bookKey)?.bookDoc?.toc ?? [];
-      const tocItem = findTocItemBS(toc, item.cfi);
-      void saveMetaWill(
-        appendMetaWillLink(baseMetaWill, focusedSectionId, {
-          booknoteId: item.id,
-          excerpt: item.text || item.note || _('Annotation'),
-          chapterLabel: tocItem?.label || undefined,
-        }),
-      );
       return;
     }
     // Native annotation-linked trails open Echoes in place (parent shared index).

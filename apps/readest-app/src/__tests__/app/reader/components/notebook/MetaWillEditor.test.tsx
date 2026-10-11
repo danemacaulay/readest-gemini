@@ -2,7 +2,6 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import MetaWillEditor from '@/app/reader/components/notebook/MetaWillEditor';
 import { createEmptyMetaWill } from '@/utils/metaWill';
-import { useMetaWillUiStore } from '@/store/metaWillUiStore';
 import type { BookNote } from '@/types/book';
 
 const saveMetaWill = vi.fn();
@@ -57,7 +56,6 @@ describe('MetaWillEditor', () => {
         text: 'Private notebook body',
       }),
     ];
-    useMetaWillUiStore.getState().setFocusedSectionId(null);
   });
 
   afterEach(() => {
@@ -113,13 +111,34 @@ describe('MetaWillEditor', () => {
     const section = screen
       .getByRole('textbox', { name: 'What I take' })
       .closest('[data-meta-will-section]') as HTMLElement;
-    fireEvent.click(within(section).getByRole('button', { name: 'Link note' }));
+    const linkButton = within(section).getByRole('button', { name: 'Link note' });
+    fireEvent.click(linkButton);
 
-    expect(within(section).queryByText('Private notebook body')).toBeNull();
-    fireEvent.click(within(section).getByRole('button', { name: 'A useful highlighted passage' }));
+    expect(linkButton.closest('.dropdown')?.className).toContain('dropdown-open');
+    expect(screen.getByRole('listbox', { name: 'Link note' })).toBeTruthy();
+    expect(screen.queryByText('Private notebook body')).toBeNull();
+    fireEvent.click(screen.getByRole('option', { name: 'A useful highlighted passage' }));
 
     expect(within(section).getByText('Chapter One')).toBeTruthy();
     expect(within(section).getByText('A useful highlighted passage')).toBeTruthy();
+  });
+
+  it('Link note shows an empty state when there are no annotations', () => {
+    booknotes = [
+      makeBooknote({
+        id: 'notebook',
+        type: 'notebook',
+        text: 'Private notebook body',
+      }),
+    ];
+    render(<MetaWillEditor bookKey='book-view' metaWill={createEmptyMetaWill()} />);
+
+    const section = screen
+      .getByRole('textbox', { name: 'What I take' })
+      .closest('[data-meta-will-section]') as HTMLElement;
+    fireEvent.click(within(section).getByRole('button', { name: 'Link note' }));
+
+    expect(screen.getByText('No annotations to link')).toBeTruthy();
   });
 
   it('removing a chip does not delete the source annotation', () => {
@@ -150,13 +169,5 @@ describe('MetaWillEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go to linked note' }));
 
     expect(goTo).toHaveBeenCalledWith('epubcfi(/6/4)');
-  });
-
-  it('tracks the focused meta-will section', () => {
-    render(<MetaWillEditor bookKey='book-view' metaWill={createEmptyMetaWill()} />);
-
-    fireEvent.focus(screen.getByRole('textbox', { name: 'What I refuse' }));
-
-    expect(useMetaWillUiStore.getState().focusedSectionId).toBe('refuse');
   });
 });
