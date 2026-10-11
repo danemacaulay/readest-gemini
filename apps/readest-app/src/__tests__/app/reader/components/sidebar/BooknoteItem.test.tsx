@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
     isNotebookVisible: false,
     setNotebookVisible: vi.fn(),
     setNotebookActiveTab: vi.fn(),
+    openEchoesSidebar: vi.fn(),
     setNotebookEditAnnotation: vi.fn(),
     setActiveEchoId: vi.fn(),
     toast: vi.fn(),
@@ -51,6 +52,10 @@ vi.mock('@/store/notebookStore', () => ({
 
 vi.mock('@/app/reader/hooks/useSaveNotebookMetaWill', () => ({
   useSaveNotebookMetaWill: () => mocks.saveMetaWill,
+}));
+
+vi.mock('@/app/reader/utils/openEchoesSidebar', () => ({
+  openEchoesSidebar: (...args: unknown[]) => mocks.openEchoesSidebar(...args),
 }));
 
 vi.mock('@/context/EnvContext', () => ({
@@ -331,7 +336,7 @@ describe('BooknoteItem', () => {
     });
   });
 
-  it('opens Notebook Echoes for an annotation linked by trail.noteId', () => {
+  it('opens left-sidebar Echoes for an annotation linked by trail.noteId', () => {
     const annotation = makeItem({
       id: 'anno-linked',
       type: 'annotation',
@@ -344,8 +349,8 @@ describe('BooknoteItem', () => {
 
     fireEvent.click(screen.getByText('seed quote'));
     expect(mocks.setActiveEchoId).toHaveBeenCalledWith('trail-linked');
-    expect(mocks.setNotebookVisible).toHaveBeenCalledWith(true);
-    expect(mocks.setNotebookActiveTab).toHaveBeenCalledWith('echoes');
+    expect(mocks.openEchoesSidebar).toHaveBeenCalled();
+    expect(mocks.setNotebookActiveTab).not.toHaveBeenCalledWith('echoes');
     expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
   });
 

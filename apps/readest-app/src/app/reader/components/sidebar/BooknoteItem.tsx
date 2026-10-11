@@ -37,6 +37,7 @@ import { setAskProposal, toggleAskReaction } from '@/utils/askRegisterFeedback';
 import { renderAskRegistersMarkdown } from '@/utils/askRegisters';
 import { appendMetaWillLink } from '@/utils/metaWill';
 import { useSaveNotebookMetaWill } from '../../hooks/useSaveNotebookMetaWill';
+import { openEchoesSidebar } from '../../utils/openEchoesSidebar';
 
 interface BooknoteItemProps {
   bookKey: string;
@@ -61,8 +62,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const { settings } = useSettingsStore();
   const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
-  const { isNotebookVisible, setNotebookEditAnnotation, setNotebookVisible, setNotebookActiveTab } =
-    useNotebookStore();
+  const { isNotebookVisible, setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
 
   const globalReadSettings = settings.globalReadSettings;
   const customColors = globalReadSettings.customHighlightColors;
@@ -81,8 +81,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
 
   const openLinkedEchoTrail = (trailId: string) => {
     useEchoesUiStore.getState().setActiveEchoId(trailId);
-    setNotebookVisible(true);
-    setNotebookActiveTab('echoes');
+    openEchoesSidebar(bookKey);
   };
 
   const cascadeDeleteEchoTrail = (trailId: string) => {

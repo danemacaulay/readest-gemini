@@ -98,9 +98,9 @@ describe('notebookStore', () => {
       expect(useNotebookStore.getState().notebookActiveTab).toBe('ai');
     });
 
-    test('sets active tab to echoes', () => {
-      useNotebookStore.getState().setNotebookActiveTab('echoes');
-      expect(useNotebookStore.getState().notebookActiveTab).toBe('echoes');
+    test('coerces legacy echoes tab to notes', () => {
+      useNotebookStore.getState().setNotebookActiveTab('echoes' as 'notes');
+      expect(useNotebookStore.getState().notebookActiveTab).toBe('notes');
     });
 
     test('sets active tab to notes', () => {

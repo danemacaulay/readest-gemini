@@ -2,7 +2,13 @@ import { create } from 'zustand';
 import { BookNote } from '@/types/book';
 import { TextSelection } from '@/utils/sel';
 
-export type NotebookTab = 'notes' | 'ai' | 'echoes';
+export type NotebookTab = 'notes' | 'ai';
+
+/** Coerce legacy persisted `echoes` (moved to left sidebar) to `notes`. */
+export function coerceNotebookTab(tab: string | undefined | null): NotebookTab {
+  if (tab === 'ai') return 'ai';
+  return 'notes';
+}
 
 interface NotebookState {
   notebookWidth: string;
@@ -48,7 +54,8 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   toggleNotebookPin: () => set((state) => ({ isNotebookPinned: !state.isNotebookPinned })),
   setNotebookVisible: (visible: boolean) => set({ isNotebookVisible: visible }),
   setNotebookPin: (pinned: boolean) => set({ isNotebookPinned: pinned }),
-  setNotebookActiveTab: (tab: NotebookTab) => set({ notebookActiveTab: tab }),
+  setNotebookActiveTab: (tab: NotebookTab | string) =>
+    set({ notebookActiveTab: coerceNotebookTab(tab) }),
   setNotebookNewAnnotation: (selection: TextSelection | null) =>
     set({ notebookNewAnnotation: selection }),
   setNotebookNewHighlightIds: (ids: string[]) => set({ notebookNewHighlightIds: ids }),

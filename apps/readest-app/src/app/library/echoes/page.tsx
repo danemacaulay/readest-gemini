@@ -43,7 +43,7 @@ import { planOpenEchoBook } from '@/services/echoes/openEchoBook';
 import type { EchoTrail } from '@/services/echoes/types';
 import type { BookNote } from '@/types/book';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
-import { useNotebookStore } from '@/store/notebookStore';
+import { openEchoesSidebar, requestOpenEchoesSidebar } from '@/app/reader/utils/openEchoesSidebar';
 import { useReaderStore } from '@/store/readerStore';
 import { eventDispatcher } from '@/utils/event';
 import { focusExistingReaderWindow, navigateToLibrary } from '@/utils/nav';
@@ -207,8 +207,7 @@ export default function EchoesPage() {
       }
 
       useEchoesUiStore.getState().setActiveEchoId(trail.id);
-      useNotebookStore.getState().setNotebookActiveTab('echoes');
-      useNotebookStore.getState().setNotebookVisible(true);
+      requestOpenEchoesSidebar();
 
       void (async () => {
         // Other Tauri windows have isolated Zustand stores — prefer focusing
@@ -236,9 +235,15 @@ export default function EchoesPage() {
             bookHash: book.hash,
             cfi: trail.seed.cfi,
           });
+          const bookKey =
+            useReaderStore.getState().bookKeys.find((key) => key.split('-')[0] === book.hash) ??
+            book.hash;
+          openEchoesSidebar(bookKey);
           return;
         }
 
+        // activeEchoId is already set; reader opens Echoes via openEchoesSidebar
+        // when the book mounts (see SideBar / Content restore).
         void openBook(book, trail.seed.cfi);
       })();
     },

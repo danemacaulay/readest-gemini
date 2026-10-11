@@ -83,6 +83,7 @@ import {
 } from '../../utils/annotatorUtil';
 import { buildAnnotationIndex, selectLocationAnnotations } from '../../utils/annotationIndex';
 import { findContentAtPoint } from '../../utils/crossDocSelection';
+import { openEchoesSidebar } from '../../utils/openEchoesSidebar';
 import {
   expandAllRenderedSections,
   expandGlobalAnnotation,
@@ -1757,8 +1758,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
       annotationId: target.id,
       annotationIsNew: created.length > 0,
     });
-    setNotebookVisible(true);
-    setNotebookActiveTab('echoes');
+    openEchoesSidebar(bookKey);
     handleDismissPopupAndSelection();
   };
 

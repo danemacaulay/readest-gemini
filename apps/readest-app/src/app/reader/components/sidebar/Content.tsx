@@ -9,6 +9,9 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 import 'overlayscrollbars/overlayscrollbars.css';
 
+import { useEchoesUiStore } from '@/store/echoesUiStore';
+import EchoesPanel from '../notebook/EchoesPanel';
+import { openEchoesSidebar } from '../../utils/openEchoesSidebar';
 import TOCView from './TOCView';
 import BooknoteView from './BooknoteView';
 import TabNavigation from './TabNavigation';
@@ -31,6 +34,15 @@ const SidebarContent: React.FC<{
   const aiEnabled = settings?.aiSettings?.enabled ?? false;
 
   const configuredTab = config?.viewSettings?.sideBarTab || 'toc';
+  const pendingOpenSidebar = useEchoesUiStore((s) => s.pendingOpenSidebar);
+
+  // One-shot: Find Echoes / library open requested the Echoes tab.
+  useEffect(() => {
+    if (!sideBarBookKey || !pendingOpenSidebar) return;
+    if (!useEchoesUiStore.getState().consumeOpenEchoesSidebar()) return;
+    openEchoesSidebar(sideBarBookKey);
+  }, [sideBarBookKey, pendingOpenSidebar]);
+
   useEffect(() => {
     if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     transitionTimeoutRef.current = null;
@@ -91,6 +103,18 @@ const SidebarContent: React.FC<{
       >
         {targetTab === 'history' ? (
           <ChatHistoryView bookKey={sideBarBookKey} />
+        ) : targetTab === 'echoes' ? (
+          <div
+            className={clsx(
+              'flex min-h-0 flex-1 flex-col transition-opacity duration-300 ease-in-out',
+              {
+                'opacity-0': fade,
+                'opacity-100': !fade,
+              },
+            )}
+          >
+            <EchoesPanel bookKey={sideBarBookKey} />
+          </div>
         ) : (
           <OverlayScrollbarsComponent
             className='min-h-0 flex-1'

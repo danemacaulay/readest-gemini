@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   requestEchoesRun: vi.fn(),
   setNotebookVisible: vi.fn(),
   setNotebookActiveTab: vi.fn(),
+  openEchoesSidebar: vi.fn(),
   toast: vi.fn(),
   getCFI: vi.fn(() => 'epubcfi(/6/2!/4/2)'),
   setSelection: null as null | ((update: (prev: unknown) => unknown) => void),
@@ -123,6 +124,10 @@ vi.mock('@/store/notebookStore', () => ({
     setNotebookNewAnnotation: vi.fn(),
     setNotebookNewHighlightIds: vi.fn(),
   }),
+}));
+
+vi.mock('@/app/reader/utils/openEchoesSidebar', () => ({
+  openEchoesSidebar: (...args: unknown[]) => h.openEchoesSidebar(...args),
 }));
 
 vi.mock('@/store/echoesUiStore', () => ({
@@ -334,11 +339,11 @@ describe('Annotator Find Echoes → highlight first', () => {
     );
   });
 
-  test('opens Notebook Echoes tab and dismisses selection', async () => {
+  test('opens left-sidebar Echoes and dismisses selection', async () => {
     await tapFindEchoes();
 
-    expect(h.setNotebookVisible).toHaveBeenCalledWith(true);
-    expect(h.setNotebookActiveTab).toHaveBeenCalledWith('echoes');
+    expect(h.openEchoesSidebar).toHaveBeenCalled();
+    expect(h.setNotebookActiveTab).not.toHaveBeenCalledWith('echoes');
     expect(h.deselect).toHaveBeenCalled();
     expect(screen.queryByTestId('annot-popup')).toBeNull();
   });

@@ -24,20 +24,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('NotebookTabNavigation design regression', () => {
-  it('shows Notes and Echoes when AI Assistant is disabled', () => {
+  it('shows only Notes when AI Assistant is disabled', () => {
     render(<NotebookTabNavigation activeTab='notes' onTabChange={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Notes' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Echoes' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'AI' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Echoes' })).toBeNull();
   });
 
-  it('shows the Notes, AI, and Echoes tabs when AI is enabled', () => {
+  it('shows Notes and AI when AI is enabled, without Echoes', () => {
     h.aiEnabled = true;
     render(<NotebookTabNavigation activeTab='notes' onTabChange={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Notes' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'AI' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Echoes' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Echoes' })).toBeNull();
   });
 });

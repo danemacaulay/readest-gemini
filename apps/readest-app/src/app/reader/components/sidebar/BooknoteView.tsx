@@ -9,7 +9,6 @@ import { RiBookmark3Line, RiBookmarkLine } from 'react-icons/ri';
 import { useEnv } from '@/context/EnvContext';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
-import { useNotebookStore } from '@/store/notebookStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
@@ -33,6 +32,7 @@ import {
   summarizeAnnotationHub,
   AnnotationFilterKind,
 } from '../../utils/annotatorUtil';
+import { openEchoesSidebar } from '../../utils/openEchoesSidebar';
 import AnnotationsToolbar from './AnnotationsToolbar';
 import BooknoteItem from './BooknoteItem';
 import { BooknoteTimeProvider } from './BooknoteTime';
@@ -57,7 +57,6 @@ const BooknoteView: React.FC<{
   const { appService } = useEnv();
   const { getConfig } = useBookDataStore();
   const { getProgress } = useReaderStore();
-  const { setNotebookVisible, setNotebookActiveTab } = useNotebookStore();
   const activeEchoId = useEchoesUiStore((s) => s.activeEchoId);
   const setActiveEchoId = useEchoesUiStore((s) => s.setActiveEchoId);
   const { setActiveBooknoteType, setBooknoteResults, isSearchBarVisible, setSearchBarVisible } =
@@ -241,10 +240,9 @@ const BooknoteView: React.FC<{
       const echoId = parseEchoNoteRef(note.note ?? '');
       if (!echoId) return;
       setActiveEchoId(echoId);
-      setNotebookVisible(true);
-      setNotebookActiveTab('echoes');
+      openEchoesSidebar(bookKey);
     },
-    [setActiveEchoId, setNotebookActiveTab, setNotebookVisible],
+    [bookKey, setActiveEchoId],
   );
 
   // ---- Virtualization wiring (mirrors TOCView pattern) ----

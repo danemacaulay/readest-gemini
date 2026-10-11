@@ -3,11 +3,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { useEnv } from '@/context/EnvContext';
+import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useReaderProgressStore } from '@/store/readerProgressStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
-import { useNotebookStore } from '@/store/notebookStore';
 import { uniqueId } from '@/utils/misc';
 import { useParallelViewStore } from '@/store/parallelViewStore';
 import { navigateToReader } from '@/utils/nav';
@@ -16,6 +16,7 @@ import { consumePendingTTSAutoplay } from '@/utils/ttsAutoplay';
 import { useTranslation } from '@/hooks/useTranslation';
 import { isTauriAppPlatform } from '@/services/environment';
 import { publishReaderWindowBooks } from '@/services/echoes/readerWindowRegistry';
+import { openEchoesSidebar } from '../utils/openEchoesSidebar';
 
 const useBooksManager = () => {
   const router = useRouter();
@@ -181,8 +182,14 @@ const useBooksManager = () => {
           openBookRef.current(bookHash, cfi);
           if (trailId) {
             useEchoesUiStore.getState().setActiveEchoId(trailId);
-            useNotebookStore.getState().setNotebookActiveTab('echoes');
-            useNotebookStore.getState().setNotebookVisible(true);
+            const bookKey =
+              useReaderStore.getState().bookKeys.find((key) => key.split('-')[0] === bookHash) ??
+              bookHash;
+            if (useBookDataStore.getState().getConfig(bookKey)) {
+              openEchoesSidebar(bookKey);
+            } else {
+              useEchoesUiStore.getState().requestOpenEchoesSidebar();
+            }
           }
         },
       )

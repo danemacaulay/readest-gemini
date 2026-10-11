@@ -5,6 +5,7 @@ import { IoIosList } from 'react-icons/io';
 import { PiNotePencil } from 'react-icons/pi';
 import { LuMessageSquare } from 'react-icons/lu';
 
+import { EchoesIcon } from '@/components/echoes/EchoesIcon';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -23,7 +24,7 @@ const TabNavigation: React.FC<{
 
   const forceMobileLayout = isForcedMobileLayout(appService?.isMobile, isIPhoneDuo);
   const isMobile = forceMobileLayout || window.innerWidth < 640 || window.innerHeight < 640;
-  const tabs = ['toc', 'annotations', 'bookmarks', ...(aiEnabled ? ['history'] : [])];
+  const tabs = ['toc', 'annotations', 'echoes', 'bookmarks', ...(aiEnabled ? ['history'] : [])];
 
   const getTabLabel = (tab: string) => {
     switch (tab) {
@@ -31,6 +32,8 @@ const TabNavigation: React.FC<{
         return _('TOC');
       case 'annotations':
         return _('Annotate');
+      case 'echoes':
+        return _('Echoes');
       case 'bookmarks':
         return _('Bookmark');
       case 'history':
@@ -74,6 +77,8 @@ const TabNavigation: React.FC<{
               <IoIosList className='mx-auto' />
             ) : tab === 'annotations' ? (
               <PiNotePencil className='mx-auto' />
+            ) : tab === 'echoes' ? (
+              <EchoesIcon className='mx-auto' />
             ) : tab === 'bookmarks' ? (
               <MdBookmarkBorder className='mx-auto' />
             ) : (
