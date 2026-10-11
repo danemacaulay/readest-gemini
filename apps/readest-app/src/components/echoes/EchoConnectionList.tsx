@@ -4,6 +4,7 @@ import React from 'react';
 import clsx from 'clsx';
 
 import { useTranslation } from '@/hooks/useTranslation';
+import { ECHOES_LOW_CONNECTION_CONFIDENCE } from '@/services/echoes/constants';
 import type { EchoConnection } from '@/services/echoes/types';
 
 type EchoConnectionListProps = {
@@ -33,12 +34,17 @@ export const EchoConnectionList: React.FC<EchoConnectionListProps> = ({
       <ul className='flex flex-col gap-1'>
         {visible.map((edge) => {
           const tip = edge.description?.trim() || `${edge.from} → ${edge.to}`;
+          const possible =
+            edge.confidence !== undefined && edge.confidence < ECHOES_LOW_CONNECTION_CONFIDENCE;
           return (
             <li
               key={edge.id}
               title={tip}
               className='text-base-content/85 hover:bg-base-200/60 flex min-w-0 items-baseline gap-1.5 rounded px-1 py-0.5 text-xs leading-snug'
             >
+              {possible ? (
+                <span className='text-base-content/50 shrink-0'>{_('Possible')} · </span>
+              ) : null}
               <span className='truncate font-medium'>{edge.from}</span>
               <span className='text-base-content/35 shrink-0' aria-hidden>
                 →

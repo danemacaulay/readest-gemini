@@ -19,6 +19,7 @@ import { EchoIdeaChips } from '@/components/echoes/EchoIdeaChips';
 import { EchoSourceCard } from '@/components/echoes/EchoSourceCard';
 import { getPersistentEchoStore, type EchoStore } from '@/services/echoes/echoStore';
 import { findLatestTrailForBook, planOpenEchoBook } from '@/services/echoes/openEchoBook';
+import { EchoesDeferredError } from '@/services/echoes/EchoesDeferredError';
 import { continueEchoInChat, runEchoes } from '@/services/echoes/runEchoes';
 import { findLibraryBookByCalibreId } from '@/services/echoes/resolveBook';
 import type { EchoTrail } from '@/services/echoes/types';
@@ -162,15 +163,30 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
         setPendingSeed(null);
       } catch (e) {
         if (controller.signal.aborted) return;
-        const message = e instanceof Error ? e.message : String(e);
-        setError(message);
         // Clear so a remount (same runToken) does not re-fire runEchoes.
         setPendingSeed(null);
-        eventDispatcher.dispatch('toast', {
-          type: 'error',
-          message: _('Could not find Echoes'),
-          timeout: 4000,
-        });
+        const deferred =
+          e instanceof EchoesDeferredError ||
+          (typeof e === 'object' &&
+            e !== null &&
+            'code' in e &&
+            (e as { code?: unknown }).code === 'echoes_deferred');
+        if (deferred) {
+          setError(null);
+          eventDispatcher.dispatch('toast', {
+            type: 'info',
+            message: _('Nothing in your library points this direction'),
+            timeout: 4000,
+          });
+        } else {
+          const message = e instanceof Error ? e.message : String(e);
+          setError(message);
+          eventDispatcher.dispatch('toast', {
+            type: 'error',
+            message: _('Could not find Echoes'),
+            timeout: 4000,
+          });
+        }
         if (annotationIsNew && annotationId) {
           const { booknotes = [] } = getConfig(bookKey) ?? {};
           const removed = removeEmptyAnnotationPlaceholder(booknotes, annotationId, Date.now());
@@ -339,6 +355,45 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
               </ul>
             )}
           </section>
+
+          {trail.trace ? (
+            <section aria-labelledby='echoes-trace-heading'>
+              <details className='eink-bordered border-base-300 rounded border px-2 py-1.5'>
+                <summary
+                  id='echoes-trace-heading'
+                  className='cursor-pointer text-xs font-medium opacity-70'
+                >
+                  {_('Trace')}
+                </summary>
+                <div className='mt-2 flex flex-col gap-1.5 text-xs leading-snug'>
+                  <p>
+                    <span className='opacity-60'>{_('Query')}: </span>
+                    {trail.trace.query}
+                  </p>
+                  {trail.trace.deferred ? (
+                    <p className='opacity-80'>{_('Deferred — nothing above threshold')}</p>
+                  ) : null}
+                  {trail.trace.retrieved.length > 0 ? (
+                    <ul className='flex flex-col gap-0.5'>
+                      {trail.trace.retrieved.map((entry) => (
+                        <li key={entry.id} className='truncate'>
+                          {entry.title || entry.bookTitle || entry.id}
+                          {entry.score != null ? ` (${entry.score.toFixed(2)})` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {trail.trace.dropped.length > 0 ? (
+                    <p className='opacity-60'>
+                      {_('Dropped {{count}} below threshold', {
+                        count: trail.trace.dropped.length,
+                      })}
+                    </p>
+                  ) : null}
+                </div>
+              </details>
+            </section>
+          ) : null}
 
           <div className='mt-auto flex flex-wrap justify-end gap-2 pt-1' dir='ltr'>
             <button
