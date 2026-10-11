@@ -42,6 +42,7 @@ const MetaWillEditor = ({
   const { getBookData, getConfig } = useBookDataStore();
   const { getView } = useReaderStore();
   const setFocusedSectionId = useMetaWillUiStore((state) => state.setFocusedSectionId);
+  const setLiveMetaWill = useMetaWillUiStore((state) => state.setLiveMetaWill);
   const saveRef = useRef(saveMetaWill);
   saveRef.current = saveMetaWill;
 
@@ -55,7 +56,20 @@ const MetaWillEditor = ({
   });
 
   useEffect(() => {
-    if (hasLocalEditsRef.current) return;
+    if (hasLocalEditsRef.current) {
+      // Keep local text; adopt links from Path B / remote saves.
+      setDraft((current) => {
+        const merged: MetaWill = {
+          sections: current.sections.map((section) => {
+            const incoming = metaWill.sections.find((candidate) => candidate.id === section.id);
+            return incoming ? { ...section, links: incoming.links } : section;
+          }),
+        };
+        draftRef.current = merged;
+        return merged;
+      });
+      return;
+    }
     draftRef.current = metaWill;
     setDraft(metaWill);
   }, [metaWill]);
@@ -111,9 +125,14 @@ const MetaWillEditor = ({
   useEffect(
     () => () => {
       setFocusedSectionId(null);
+      setLiveMetaWill(null);
     },
-    [setFocusedSectionId],
+    [setFocusedSectionId, setLiveMetaWill],
   );
+
+  useEffect(() => {
+    setLiveMetaWill(draft);
+  }, [draft, setLiveMetaWill]);
 
   const updateDraft = (next: MetaWill) => {
     draftRef.current = next;
@@ -149,18 +168,13 @@ const MetaWillEditor = ({
   return (
     <div className='flex h-full min-h-0 flex-col gap-3 overflow-y-auto'>
       {draft.sections.map((section) => {
-        const label = META_WILL_SECTION_LABELS[section.id];
+        const label = _(META_WILL_SECTION_LABELS[section.id]);
         return (
           <section
             key={section.id}
             data-meta-will-section={section.id}
             className='flex shrink-0 flex-col gap-1 text-sm font-medium'
             onFocusCapture={() => setFocusedSectionId(section.id)}
-            onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                setFocusedSectionId(null);
-              }
-            }}
           >
             <span>{label}</span>
             <textarea

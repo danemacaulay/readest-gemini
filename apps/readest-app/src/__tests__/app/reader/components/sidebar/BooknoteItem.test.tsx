@@ -58,6 +58,10 @@ vi.mock('@/app/reader/utils/openEchoesSidebar', () => ({
   openEchoesSidebar: (...args: unknown[]) => mocks.openEchoesSidebar(...args),
 }));
 
+vi.mock('@/services/nav', () => ({
+  findTocItemBS: () => ({ href: 'ch1.html', label: 'Chapter 1' }),
+}));
+
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: mocks.appService }),
 }));
@@ -79,6 +83,7 @@ vi.mock('@/store/readerStore', () => ({
 
 vi.mock('@/store/bookDataStore', () => ({
   useBookDataStore: () => ({
+    getBookData: () => ({ bookDoc: { toc: [] } }),
     getConfig: () => ({ booknotes: mocks.state.booknotes }),
     saveConfig: mocks.saveConfig,
     updateBooknotes: mocks.updateBooknotes,

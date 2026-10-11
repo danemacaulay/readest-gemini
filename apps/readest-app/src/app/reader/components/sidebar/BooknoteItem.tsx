@@ -35,6 +35,7 @@ import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { setAskProposal, toggleAskReaction } from '@/utils/askRegisterFeedback';
 import { renderAskRegistersMarkdown } from '@/utils/askRegisters';
+import { findTocItemBS } from '@/services/nav';
 import { appendMetaWillLink } from '@/utils/metaWill';
 import { useSaveNotebookMetaWill } from '../../hooks/useSaveNotebookMetaWill';
 import { openEchoesSidebar } from '../../utils/openEchoesSidebar';
@@ -60,7 +61,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { settings } = useSettingsStore();
-  const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
+  const { getBookData, getConfig, saveConfig, updateBooknotes } = useBookDataStore();
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
   const { isNotebookVisible, setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
 
@@ -162,7 +163,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
       onClick?.();
       return;
     }
-    const focusedSectionId = useMetaWillUiStore.getState().focusedSectionId;
+    const { focusedSectionId, liveMetaWill } = useMetaWillUiStore.getState();
     const isMobile =
       appService?.isMobile === true || window.innerWidth < 640 || window.innerHeight < 640;
     const notebook = getConfig(bookKey)?.booknotes?.find(
@@ -172,17 +173,21 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
         !note.deletedAt &&
         note.metaWill !== undefined,
     );
+    const baseMetaWill = liveMetaWill ?? notebook?.metaWill;
     if (
       !isMobile &&
       isNotebookVisible &&
       focusedSectionId &&
       item.type === 'annotation' &&
-      notebook?.metaWill
+      baseMetaWill
     ) {
+      const toc = getBookData(bookKey)?.bookDoc?.toc ?? [];
+      const tocItem = findTocItemBS(toc, item.cfi);
       void saveMetaWill(
-        appendMetaWillLink(notebook.metaWill, focusedSectionId, {
+        appendMetaWillLink(baseMetaWill, focusedSectionId, {
           booknoteId: item.id,
           excerpt: item.text || item.note || _('Annotation'),
+          chapterLabel: tocItem?.label || undefined,
         }),
       );
       return;
