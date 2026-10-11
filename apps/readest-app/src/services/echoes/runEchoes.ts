@@ -195,14 +195,17 @@ export async function runEchoes(
   const keptIds = new Set(trace.retrieved.map((entry) => entry.id));
   const keptSources = sources.filter((source) => keptIds.has(source.id));
   const keptPassages = retrieved.passages?.filter((passage) => keptIds.has(passage.id));
+  // Server packs include all hits; when we drop any by score, omit the pack so
+  // the model only sees kept passages (Trace must match what was synthesized).
+  const omitServerPack = trace.dropped.length > 0;
 
   const built = buildEchoesPrompt({
     bookTitle: seed.bookTitle,
     seedText: seed.seedText,
     question: seed.question,
     sources: keptSources,
-    contextText: retrieved.contextText,
-    synthesisContext: retrieved.synthesisContext,
+    contextText: omitServerPack ? undefined : retrieved.contextText,
+    synthesisContext: omitServerPack ? undefined : retrieved.synthesisContext,
     passages: keptPassages,
     ideas: retrieved.ideas,
     connections: retrieved.connections,
@@ -232,7 +235,9 @@ export async function runEchoes(
       referenceId: b.referenceId,
       passageCount: b.passageCount,
     })),
-    synthesisContext: retrieved.synthesisContext || retrieved.contextText,
+    synthesisContext: omitServerPack
+      ? undefined
+      : retrieved.synthesisContext || retrieved.contextText,
     passages: keptPassages?.map((p) => ({
       id: p.id,
       title: p.title,

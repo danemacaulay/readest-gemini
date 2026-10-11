@@ -164,6 +164,48 @@ describe('runEchoes', () => {
     expect(createEchoBookNoteStub).not.toHaveBeenCalled();
   });
 
+  it('omits the server context pack when any source was dropped', async () => {
+    const store = createMemoryEchoStore();
+    const retrieve = vi.fn(async () => ({
+      sources: [
+        { id: 'keep', title: 'Keep', snippet: 'good', score: 0.9 },
+        { id: 'drop', title: 'Drop', snippet: 'bad', score: 0.05 },
+      ],
+      synthesisContext: 'PACK mentions [drop] and [keep]',
+      contextText: 'ctx mentions drop',
+      passages: [
+        { id: 'keep', content: 'kept passage body' },
+        { id: 'drop', content: 'dropped passage body' },
+      ],
+    }));
+    const complete = vi.fn(async (prompt: string) => {
+      expect(prompt).not.toContain('PACK mentions');
+      expect(prompt).not.toContain('dropped passage body');
+      expect(prompt).toContain('kept passage body');
+      return { text: 'Take.', conversationId: 'agy-pack' };
+    });
+
+    const trail = await runEchoes(
+      {
+        bookHash: 'hash-1',
+        bookTitle: 'Meditations',
+        seedText: 'The impediment…',
+        annotationId: 'anno-1',
+      },
+      {
+        lightragBaseUrl: 'http://127.0.0.1:8765',
+        lightragMode: 'hybrid',
+        agyPath: 'agy',
+      },
+      { retrieve, complete: complete as CompleteFn, runCommand: vi.fn(), store },
+    );
+
+    expect(complete).toHaveBeenCalled();
+    expect(trail.sources.map((s) => s.id)).toEqual(['keep']);
+    expect(trail.trace?.dropped.map((d) => d.id)).toEqual(['drop']);
+    expect(trail.synthesisContext).toBeUndefined();
+  });
+
   it('defers when every source is below the score threshold', async () => {
     const store = createMemoryEchoStore();
     const retrieve = vi.fn(async () => ({
