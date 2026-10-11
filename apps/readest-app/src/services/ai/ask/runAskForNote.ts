@@ -1,5 +1,5 @@
 import { mapAskError } from '@/components/ask/askErrors';
-import type { BookNoteContribution } from '@/types/book';
+import type { AskRegister, BookNoteContribution } from '@/types/book';
 import { runAsk as defaultRunAsk, type AskDeps } from './askService';
 import type { AskRequest } from './types';
 
@@ -10,7 +10,7 @@ export type AskForNoteDeps = {
   saveNote: (
     annotationId: string,
     note: string,
-    options?: { contribution?: BookNoteContribution },
+    options?: { contribution?: BookNoteContribution; askRegisters?: AskRegister[] },
   ) => Promise<boolean>;
   toast: (opts: { type: 'info' | 'error'; message: string }) => void;
   t: (key: string) => string;
@@ -26,7 +26,10 @@ export async function runAskForNote(input: AskRequest, deps: AskForNoteDeps): Pr
   const ask = deps.runAsk ?? defaultRunAsk;
   try {
     const result = await ask(input, deps.askDeps);
-    const saved = await deps.saveNote(target.id, result.answer, { contribution: 'ai' });
+    const saved = await deps.saveNote(target.id, '', {
+      contribution: 'ai',
+      askRegisters: result.registers,
+    });
     // saveNote (useSaveBooknoteNoteText) already toasts on failure — don't double-toast.
     if (!saved) return false;
     deps.toast({

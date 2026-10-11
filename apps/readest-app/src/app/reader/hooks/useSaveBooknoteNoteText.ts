@@ -5,13 +5,13 @@ import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
-import type { BookNoteContribution } from '@/types/book';
-import { updateBooknoteNoteText } from '@/utils/updateBooknoteNoteText';
+import {
+  updateBooknoteNoteText,
+  type UpdateBooknoteNoteTextOptions,
+} from '@/utils/updateBooknoteNoteText';
 import { applyNoteBubbleTransition, decideNoteBubbleTransition } from '../utils/annotatorUtil';
 
-export type SaveBooknoteNoteOptions = {
-  contribution?: BookNoteContribution;
-};
+export type SaveBooknoteNoteOptions = UpdateBooknoteNoteTextOptions;
 
 /**
  * Confirms persistence before closing the editor or updating note bubbles.

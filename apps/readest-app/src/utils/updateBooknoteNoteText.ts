@@ -1,9 +1,10 @@
-import { BookNote, BookNoteContribution } from '@/types/book';
+import { AskRegister, BookNote, BookNoteContribution } from '@/types/book';
 import { resolveContributionUpdate } from '@/utils/booknoteContribution';
 import { nextBooknoteStamp } from '@/utils/booknoteStamp';
 
 export interface UpdateBooknoteNoteTextOptions {
   contribution?: BookNoteContribution;
+  askRegisters?: AskRegister[];
 }
 
 export interface UpdateBooknoteNoteTextResult {
@@ -54,6 +55,9 @@ export function updateBooknoteNoteText(
     delete updatedBooknote.contribution;
   } else {
     updatedBooknote.contribution = contribution;
+  }
+  if (options?.askRegisters) {
+    updatedBooknote.askRegisters = options.askRegisters;
   }
 
   return {

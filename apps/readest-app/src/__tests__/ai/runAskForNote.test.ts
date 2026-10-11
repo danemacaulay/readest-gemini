@@ -1,12 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
+import { AskParseError } from '../../services/ai/ask/parseAskRegisters';
 import { runAskForNote } from '../../services/ai/ask/runAskForNote';
 
+const regs = [
+  { kind: 'what' as const, text: 'A' },
+  { kind: 'how' as const, text: 'B' },
+  { kind: 'why' as const, text: 'C' },
+  { kind: 'should' as const, text: 'D' },
+];
+
 describe('runAskForNote', () => {
-  it('creates highlight, saves trimmed answer, toasts success', async () => {
+  it('creates highlight, saves empty note with registers, toasts success', async () => {
     const ensureHighlight = vi.fn(() => ({ id: 'n1' }));
     const saveNote = vi.fn(async () => true);
     const toast = vi.fn();
-    const runAsk = vi.fn(async () => ({ answer: 'Hello', truncatedSelection: false }));
+    const runAsk = vi.fn(async () => ({ registers: regs, truncatedSelection: false }));
 
     const ok = await runAskForNote(
       {
@@ -28,7 +36,7 @@ describe('runAskForNote', () => {
 
     expect(ok).toBe(true);
     expect(ensureHighlight).toHaveBeenCalledBefore(runAsk as never);
-    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello', { contribution: 'ai' });
+    expect(saveNote).toHaveBeenCalledWith('n1', '', { contribution: 'ai', askRegisters: regs });
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ type: 'info' }));
   });
 
@@ -60,8 +68,38 @@ describe('runAskForNote', () => {
     );
   });
 
+  it('toasts AskParseError and skips save', async () => {
+    const saveNote = vi.fn(async () => true);
+    const toast = vi.fn();
+    const ok = await runAskForNote(
+      {
+        bookHash: 'h',
+        bookTitle: 'Book',
+        selectionText: 'sel',
+        bookAuthor: 'Author',
+      },
+      {
+        runAsk: vi.fn(async () => {
+          throw new AskParseError('Ask returned an incomplete answer. Try again.');
+        }) as never,
+        askDeps: { complete: vi.fn() as never, agyPath: 'agy' },
+        ensureHighlight: () => ({ id: 'n1' }),
+        saveNote,
+        toast,
+        t: (k) => k,
+      },
+    );
+    expect(ok).toBe(false);
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'error',
+        message: 'Ask returned an incomplete answer. Try again.',
+      }),
+    );
+  });
+
   it('returns false without toasting when saveNote returns false', async () => {
-    // Caller (useSaveBooknoteNoteText) already toasts on save failure.
     const saveNote = vi.fn(async () => false);
     const toast = vi.fn();
     const ok = await runAskForNote(
@@ -72,7 +110,7 @@ describe('runAskForNote', () => {
         bookAuthor: 'Author',
       },
       {
-        runAsk: vi.fn(async () => ({ answer: 'Hello', truncatedSelection: false })) as never,
+        runAsk: vi.fn(async () => ({ registers: regs, truncatedSelection: false })) as never,
         askDeps: { complete: vi.fn() as never, agyPath: 'agy' },
         ensureHighlight: () => ({ id: 'n1' }),
         saveNote,
@@ -81,7 +119,7 @@ describe('runAskForNote', () => {
       },
     );
     expect(ok).toBe(false);
-    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello', { contribution: 'ai' });
+    expect(saveNote).toHaveBeenCalledWith('n1', '', { contribution: 'ai', askRegisters: regs });
     expect(toast).not.toHaveBeenCalled();
   });
 

@@ -178,4 +178,37 @@ describe('updateBooknoteNoteText', () => {
 
     expect(result!.updatedBooknote.contribution).toBeUndefined();
   });
+
+  const regs = [
+    { kind: 'what' as const, text: 'A' },
+    { kind: 'how' as const, text: 'B' },
+    { kind: 'why' as const, text: 'C' },
+    { kind: 'should' as const, text: 'D' },
+  ];
+
+  it('writes askRegisters when provided without requiring note text', () => {
+    const note = makeBooknote({ id: 'note-1', note: 'original note' });
+    const res = updateBooknoteNoteText([note], note.id, '', 2000, {
+      contribution: 'ai',
+      askRegisters: [...regs],
+    });
+    expect(res!.updatedBooknote.note).toBe('');
+    expect(res!.updatedBooknote.askRegisters).toEqual(regs);
+    expect(res!.updatedBooknote.contribution).toBe('ai');
+  });
+
+  it('preserves askRegisters and their feedback on a human edit', () => {
+    const withRegs = makeBooknote({
+      id: 'note-1',
+      contribution: 'ai',
+      askRegisters: [
+        { ...regs[0]!, feedback: { rating: 'like' as const, updatedAt: 1500 } },
+        ...regs.slice(1),
+      ],
+    });
+    const res = updateBooknoteNoteText([withRegs], withRegs.id, 'my own words', 2000);
+    expect(res!.updatedBooknote.note).toBe('my own words');
+    expect(res!.updatedBooknote.contribution).toBe('co-authored');
+    expect(res!.updatedBooknote.askRegisters).toEqual(withRegs.askRegisters);
+  });
 });
