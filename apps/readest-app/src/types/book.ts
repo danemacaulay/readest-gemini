@@ -199,6 +199,21 @@ export interface TimeInfo {
 /** Local-only authorship of note body text. omit = human (legacy). Cloud sync may drop this field. */
 export type BookNoteContribution = 'human' | 'ai' | 'co-authored';
 
+export type AskRegisterKind = 'what' | 'how' | 'why' | 'should';
+
+export type AskRegisterFeedback = {
+  rating?: 'like' | 'dislike';
+  verdict?: 'correct' | 'incorrect';
+  proposal?: string;
+  updatedAt: number;
+};
+
+export type AskRegister = {
+  kind: AskRegisterKind;
+  text: string;
+  feedback?: AskRegisterFeedback;
+};
+
 export interface BookNote {
   bookHash?: string;
   metaHash?: string;
@@ -222,6 +237,11 @@ export interface BookNote {
   global?: boolean;
   /** Local-only; cloud sync may drop this field. omit = human (legacy). */
   contribution?: BookNoteContribution;
+  /**
+   * Local-only; cloud sync may drop this field. Ask's four-register answer.
+   * Never written into `note`.
+   */
+  askRegisters?: AskRegister[];
 
   createdAt: number;
   updatedAt: number;
