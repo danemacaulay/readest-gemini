@@ -1,5 +1,20 @@
 export type EchoTrailStatus = 'draft' | 'promoted';
 
+export type EchoRetrieveTraceEntry = {
+  id: string;
+  title?: string;
+  score?: number;
+  bookTitle?: string;
+};
+
+export type EchoRetrieveTrace = {
+  query: string;
+  retrieved: EchoRetrieveTraceEntry[];
+  dropped: (EchoRetrieveTraceEntry & { reason: 'below_threshold' })[];
+  deferred: boolean;
+  minScore: number;
+};
+
 export type EchoSource = {
   id: string;
   title: string;
@@ -8,6 +23,8 @@ export type EchoSource = {
   bookTitle?: string;
   /** Full retrieved chunk when available (rich retrieve). */
   content?: string;
+  /** LightRAG relevance score when provided. */
+  score?: number;
 };
 
 export type EchoPassage = {
@@ -40,6 +57,8 @@ export type EchoConnection = {
   from: string;
   to: string;
   description?: string;
+  /** 0–1 when the retrieve payload provides it; never invented client-side. */
+  confidence?: number;
 };
 
 export type EchoTrailSeed = {
@@ -67,6 +86,8 @@ export type EchoTrail = {
   passages?: EchoPassage[];
   ideas?: EchoIdea[];
   connections?: EchoConnection[];
+  /** Local retrieve/defer decision record. */
+  trace?: EchoRetrieveTrace;
   createdAt: number;
   updatedAt: number;
   agyConversationId?: string;
