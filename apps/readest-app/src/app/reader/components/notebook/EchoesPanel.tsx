@@ -154,7 +154,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
         if (controller.signal.aborted) return;
         const noteId = next.noteId ?? annotationId;
         if (noteId) {
-          await saveBooknoteNoteText(noteId, next.synthesis);
+          await saveBooknoteNoteText(noteId, next.synthesis, { contribution: 'ai' });
         }
         if (controller.signal.aborted) return;
         setTrail(next);

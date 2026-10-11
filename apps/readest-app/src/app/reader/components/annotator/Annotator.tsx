@@ -1830,7 +1830,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
               agyPath: ai.agyPath || DEFAULT_AI_SETTINGS.agyPath,
             },
             ensureHighlight: () => target,
-            saveNote: (id, note) => saveBooknoteNoteText(id, note),
+            saveNote: (id, note, options) => saveBooknoteNoteText(id, note, options),
             toast: (opts) => eventDispatcher.dispatch('toast', { ...opts, timeout: 2000 }),
             t: _,
           },

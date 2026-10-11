@@ -276,7 +276,9 @@ describe('EchoesPanel', () => {
     });
 
     await waitFor(() => {
-      expect(h.saveBooknoteNoteText).toHaveBeenCalledWith('anno-new', 'Written into the note.');
+      expect(h.saveBooknoteNoteText).toHaveBeenCalledWith('anno-new', 'Written into the note.', {
+        contribution: 'ai',
+      });
     });
     expect(h.runEchoes).toHaveBeenCalled();
   });
