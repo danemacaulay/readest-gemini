@@ -11,7 +11,7 @@ const regs = [
 
 describe('runAskForNote', () => {
   it('creates highlight, saves empty note with registers, toasts success', async () => {
-    const ensureHighlight = vi.fn(() => ({ id: 'n1' }));
+    const ensureHighlight = vi.fn(() => ({ id: 'n1', note: '' }));
     const saveNote = vi.fn(async () => true);
     const toast = vi.fn();
     const runAsk = vi.fn(async () => ({ registers: regs, truncatedSelection: false }));
@@ -38,6 +38,32 @@ describe('runAskForNote', () => {
     expect(ensureHighlight).toHaveBeenCalledBefore(runAsk as never);
     expect(saveNote).toHaveBeenCalledWith('n1', '', { contribution: 'ai', askRegisters: regs });
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ type: 'info' }));
+  });
+
+  it('preserves an existing human note and marks co-authored when Ask lands on it', async () => {
+    const saveNote = vi.fn(async () => true);
+    const toast = vi.fn();
+    const ok = await runAskForNote(
+      {
+        bookHash: 'h',
+        bookTitle: 'Book',
+        selectionText: 'sel',
+        bookAuthor: 'Author',
+      },
+      {
+        runAsk: vi.fn(async () => ({ registers: regs, truncatedSelection: false })) as never,
+        askDeps: { complete: vi.fn() as never, agyPath: 'agy' },
+        ensureHighlight: () => ({ id: 'n1', note: 'my prior thoughts' }),
+        saveNote,
+        toast,
+        t: (k) => k,
+      },
+    );
+    expect(ok).toBe(true);
+    expect(saveNote).toHaveBeenCalledWith('n1', 'my prior thoughts', {
+      contribution: 'co-authored',
+      askRegisters: regs,
+    });
   });
 
   it('toasts error and skips save when ask fails', async () => {

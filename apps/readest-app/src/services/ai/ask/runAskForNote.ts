@@ -6,7 +6,7 @@ import type { AskRequest } from './types';
 export type AskForNoteDeps = {
   runAsk?: typeof defaultRunAsk;
   askDeps: AskDeps;
-  ensureHighlight: () => { id: string } | null | undefined;
+  ensureHighlight: () => { id: string; note?: string } | null | undefined;
   saveNote: (
     annotationId: string,
     note: string,
@@ -26,15 +26,16 @@ export async function runAskForNote(input: AskRequest, deps: AskForNoteDeps): Pr
   const ask = deps.runAsk ?? defaultRunAsk;
   try {
     const result = await ask(input, deps.askDeps);
-    const saved = await deps.saveNote(target.id, '', {
-      contribution: 'ai',
+    const existingNote = target.note ?? '';
+    const saved = await deps.saveNote(target.id, existingNote, {
+      contribution: existingNote.trim() ? 'co-authored' : 'ai',
       askRegisters: result.registers,
     });
     // saveNote (useSaveBooknoteNoteText) already toasts on failure — don't double-toast.
     if (!saved) return false;
     deps.toast({
       type: 'info',
-      message: deps.t('Ask answer saved as note'),
+      message: deps.t('Ask answer saved'),
     });
     return true;
   } catch (err) {

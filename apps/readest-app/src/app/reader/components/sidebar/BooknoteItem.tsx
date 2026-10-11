@@ -33,6 +33,7 @@ import { deleteEchoTrail } from '@/services/echoes/echoSync';
 import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { setAskProposal, toggleAskReaction } from '@/utils/askRegisterFeedback';
+import { renderAskRegistersMarkdown } from '@/utils/askRegisters';
 
 interface BooknoteItemProps {
   bookKey: string;
@@ -229,6 +230,10 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
         text: item.text,
         note: item.note,
         noteLabel: _('Note'),
+        askRegistersMarkdown: item.askRegisters?.length
+          ? renderAskRegistersMarkdown(item.askRegisters)
+          : undefined,
+        askLabel: _('Ask'),
         url,
         linkLabel,
       }),

@@ -749,4 +749,19 @@ describe('buildAnnotationCopyMarkdown', () => {
     });
     expect(result).toBe(`> quote\n\n*[Page: 1](${webUrl})*`);
   });
+
+  it('should append Ask registers after the human note when provided', () => {
+    const result = buildAnnotationCopyMarkdown({
+      text: 'quote',
+      note: 'my thought',
+      noteLabel: 'Note',
+      askRegistersMarkdown: '**What**\n\nSays X.',
+      askLabel: 'Ask',
+      url,
+      linkLabel: 'Page: 12',
+    });
+    expect(result).toBe(
+      '> quote\n\n**Note**: my thought\n\n**Ask**\n\n**What**\n\nSays X.\n\n*[Page: 12](readest://book/abc/annotation/n1?cfi=/6/4)*',
+    );
+  });
 });

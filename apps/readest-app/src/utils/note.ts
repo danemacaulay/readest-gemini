@@ -249,18 +249,27 @@ export function buildAnnotationCopyMarkdown({
   text,
   note,
   noteLabel,
+  askRegistersMarkdown,
+  askLabel,
   url,
   linkLabel,
 }: {
   text?: string;
   note?: string;
   noteLabel: string;
+  /** Pre-rendered Ask registers markdown (copy/export only). */
+  askRegistersMarkdown?: string;
+  askLabel?: string;
   url: string;
   linkLabel: string;
 }): string {
   const blocks: string[] = [];
   if (text) blocks.push(formatBlockQuote(text));
   if (note) blocks.push(`**${noteLabel}**: ${note}`);
+  if (askRegistersMarkdown) {
+    const heading = askLabel ? `**${askLabel}**\n\n` : '';
+    blocks.push(`${heading}${askRegistersMarkdown}`);
+  }
   blocks.push(`*[${linkLabel}](${url})*`);
   return blocks.join('\n\n');
 }

@@ -1762,9 +1762,9 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets; gridInsets?:
     handleDismissPopupAndSelection();
   };
 
-  // One-tap Ask: fixed expand+argue prompt, no question composer. Create the
+  // One-tap Ask: four-register prompt, no question composer. Create the
   // highlight while selection is live, dismiss UI, then run agy headlessly and
-  // write the answer onto the note (same silent path as before).
+  // attach askRegisters (leave the human note text untouched).
   const handleAsk = () => {
     if (!selection?.text) return;
     if (selection.popup && !selection.cfi) return;
