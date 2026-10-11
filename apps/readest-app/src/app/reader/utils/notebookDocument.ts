@@ -1,4 +1,4 @@
-import { BookNote } from '@/types/book';
+import { BookNote, MetaWill } from '@/types/book';
 import { nextBooknoteStamp } from '@/utils/booknoteStamp';
 
 export const NOTEBOOK_ID = 'notebook';
@@ -48,6 +48,7 @@ export const upsertNotebookRecord = (
   compatibilityCfi: string | null,
   now: number,
   createIfMissing: boolean,
+  metaWill?: MetaWill,
 ): NotebookRecordUpdate | null => {
   const existing = booknotes.find(
     (booknote) => booknote.id === NOTEBOOK_ID && booknote.type === 'notebook',
@@ -62,6 +63,7 @@ export const upsertNotebookRecord = (
         ...existing,
         cfi,
         note: content,
+        ...(metaWill && { metaWill }),
         updatedAt: nextBooknoteStamp(existing, now),
         ...(existing.deletedAt != null && { deletedAt: null }),
       }
@@ -70,6 +72,7 @@ export const upsertNotebookRecord = (
         type: 'notebook',
         cfi,
         note: content,
+        ...(metaWill && { metaWill }),
         createdAt: now,
         updatedAt: now,
       };

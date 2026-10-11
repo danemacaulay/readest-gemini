@@ -7,7 +7,9 @@ import {
   createEmptyMetaWill,
   getReadingIntention,
   removeMetaWillLink,
+  shouldSeedMetaWill,
 } from '@/utils/metaWill';
+import type { BookNote } from '@/types/book';
 
 describe('metaWill helpers', () => {
   it('seeds five empty sections in canonical order', () => {
@@ -44,5 +46,39 @@ describe('metaWill helpers', () => {
     m = removeMetaWillLink(m, 'take', 'a1');
     expect(m.sections.find((s) => s.id === 'take')!.links).toHaveLength(0);
     expect(m.sections.find((s) => s.id === 'refuse')!.links).toHaveLength(1);
+  });
+
+  it('seeds when the notebook is missing or has empty legacy text', () => {
+    const emptyNotebook: BookNote = {
+      id: 'notebook',
+      type: 'notebook',
+      cfi: 'epubcfi(/6/2)',
+      note: '  ',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    expect(shouldSeedMetaWill(null)).toBe(true);
+    expect(shouldSeedMetaWill(emptyNotebook)).toBe(true);
+  });
+
+  it('does not seed over legacy text or an existing meta-will', () => {
+    const notebook: BookNote = {
+      id: 'notebook',
+      type: 'notebook',
+      cfi: 'epubcfi(/6/2)',
+      note: 'Legacy notes',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    expect(shouldSeedMetaWill(notebook)).toBe(false);
+    expect(
+      shouldSeedMetaWill({
+        ...notebook,
+        note: '',
+        metaWill: createEmptyMetaWill(),
+      }),
+    ).toBe(false);
   });
 });

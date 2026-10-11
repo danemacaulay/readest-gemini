@@ -1,16 +1,20 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { PiCaretDown, PiNotePencil } from 'react-icons/pi';
 import TextEditor, { TextEditorRef } from '@/components/TextEditor';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useNotebookDocumentStore } from '@/store/notebookDocumentStore';
 import { BookNote } from '@/types/book';
+import { createEmptyMetaWill, shouldSeedMetaWill } from '@/utils/metaWill';
 import { flushNotebookDocument } from '../../hooks/useNotebookDocumentCoordinator';
+import MetaWillEditor from './MetaWillEditor';
 
 interface NotebookEditorProps {
   bookKey: string;
   handleOpenAnnotations: () => void;
   excerpts: BookNote[];
   onDeleteExcerpt: (excerpt: BookNote) => void;
+  notebook: BookNote | null;
+  compatibilityCfi: string | null;
 }
 
 const NotebookEditor: React.FC<NotebookEditorProps> = ({
@@ -18,6 +22,8 @@ const NotebookEditor: React.FC<NotebookEditorProps> = ({
   handleOpenAnnotations,
   excerpts,
   onDeleteExcerpt,
+  notebook,
+  compatibilityCfi,
 }) => {
   const _ = useTranslation();
   const bookHash = bookKey.split('-')[0]!;
@@ -27,6 +33,15 @@ const NotebookEditor: React.FC<NotebookEditorProps> = ({
   const chooseRecovery = useNotebookDocumentStore((state) => state.chooseRecovery);
   const editorRef = useRef<TextEditorRef>(null);
   const composingRef = useRef(false);
+  const emptyMetaWillRef = useRef(createEmptyMetaWill());
+  const shouldSeed = shouldSeedMetaWill(notebook);
+  const metaWill = notebook?.metaWill ?? (shouldSeed ? emptyMetaWillRef.current : null);
+
+  useEffect(() => {
+    if (shouldSeed && !compatibilityCfi) {
+      useNotebookDocumentStore.getState().markSaveFailed(bookHash, true);
+    }
+  }, [bookHash, compatibilityCfi, shouldSeed]);
 
   if (!session) return null;
 
@@ -102,28 +117,37 @@ const NotebookEditor: React.FC<NotebookEditorProps> = ({
         </section>
       )}
       <div className='eink-bordered bg-base-100 min-h-0 flex-1 rounded-lg border p-3'>
-        <TextEditor
-          ref={editorRef}
-          value={session.content}
-          onChange={(value) => {
-            if (!composingRef.current) applyContent(value);
-          }}
-          onSave={() => void flushNotebookDocument(bookKey)}
-          onBlur={() => void flushNotebookDocument(bookKey)}
-          onSelect={(start, end) => setSelection(bookHash, start, end)}
-          onCompositionStart={() => {
-            composingRef.current = true;
-          }}
-          onCompositionEnd={(value) => {
-            composingRef.current = false;
-            applyContent(value);
-          }}
-          placeholder={_('Start writing about this book…')}
-          ariaLabel={_('Notebook')}
-          className='h-full min-h-0 select-text overflow-y-auto text-start'
-          spellCheck
-          autoResize={false}
-        />
+        {metaWill ? (
+          <MetaWillEditor
+            bookKey={bookKey}
+            metaWill={metaWill}
+            seedOnMount={shouldSeed}
+            compatibilityCfi={compatibilityCfi}
+          />
+        ) : (
+          <TextEditor
+            ref={editorRef}
+            value={session.content}
+            onChange={(value) => {
+              if (!composingRef.current) applyContent(value);
+            }}
+            onSave={() => void flushNotebookDocument(bookKey)}
+            onBlur={() => void flushNotebookDocument(bookKey)}
+            onSelect={(start, end) => setSelection(bookHash, start, end)}
+            onCompositionStart={() => {
+              composingRef.current = true;
+            }}
+            onCompositionEnd={(value) => {
+              composingRef.current = false;
+              applyContent(value);
+            }}
+            placeholder={_('Start writing about this book…')}
+            ariaLabel={_('Notebook')}
+            className='h-full min-h-0 select-text overflow-y-auto text-start'
+            spellCheck
+            autoResize={false}
+          />
+        )}
       </div>
       <div className='flex min-h-8 flex-wrap items-center gap-2 text-xs'>
         <button

@@ -176,9 +176,14 @@ const Notebook: React.FC = () => {
 
   if (!sideBarBookKey) return null;
   const bookData = getBookData(sideBarBookKey);
-  const excerptNotes = (getConfig(sideBarBookKey)?.booknotes ?? [])
+  const config = getConfig(sideBarBookKey);
+  const excerptNotes = (config?.booknotes ?? [])
     .filter((note) => note.type === 'excerpt' && note.text && !note.deletedAt)
     .sort((a, b) => a.createdAt - b.createdAt);
+  const notebook =
+    config?.booknotes?.find(
+      (note) => note.id === 'notebook' && note.type === 'notebook' && !note.deletedAt,
+    ) ?? null;
   const viewSettings = getViewSettings(sideBarBookKey);
   if (!bookData?.bookDoc) return null;
   const languageDir = getBookDirFromLanguage(bookData.bookDoc.metadata.language);
@@ -278,6 +283,8 @@ const Notebook: React.FC = () => {
             handleOpenAnnotations={handleOpenAnnotations}
             excerpts={excerptNotes}
             onDeleteExcerpt={handleDeleteExcerpt}
+            notebook={notebook}
+            compatibilityCfi={config?.location || null}
           />
         )}
         <div

@@ -9,6 +9,10 @@ vi.mock('@/app/reader/hooks/useNotebookDocumentCoordinator', () => ({
   flushNotebookDocument: vi.fn(),
 }));
 
+vi.mock('@/app/reader/hooks/useSaveNotebookMetaWill', () => ({
+  useSaveNotebookMetaWill: () => vi.fn(),
+}));
+
 vi.mock('@/hooks/useResponsiveSize', () => ({
   useResponsiveSize: (size: number) => size,
 }));
@@ -35,6 +39,15 @@ describe('Notebook All notes action', () => {
         handleOpenAnnotations={handleOpenAnnotations}
         excerpts={[]}
         onDeleteExcerpt={vi.fn()}
+        notebook={{
+          id: 'notebook',
+          type: 'notebook',
+          cfi: 'epubcfi(/6/2)',
+          note: 'Legacy notebook',
+          createdAt: 1,
+          updatedAt: 1,
+        }}
+        compatibilityCfi='epubcfi(/6/2)'
       />,
     );
 

@@ -26,6 +26,10 @@ export function createEmptyMetaWill(): MetaWill {
   };
 }
 
+export function shouldSeedMetaWill(notebook: BookNote | null): boolean {
+  return !notebook?.metaWill && !notebook?.note.trim();
+}
+
 export function getReadingIntention(metaWill: MetaWill | undefined | null): string | null {
   if (!metaWill) return null;
   const trimmed = metaWill.sections.find((s) => s.id === 'why')?.text.trim();

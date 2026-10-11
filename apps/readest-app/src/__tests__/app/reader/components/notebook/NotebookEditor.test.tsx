@@ -5,16 +5,30 @@ import { useNotebookDocumentStore } from '@/store/notebookDocumentStore';
 import { BookNote } from '@/types/book';
 
 const flushNotebookDocument = vi.fn(async (_bookKey: string) => 'saved');
+const saveNotebookMetaWill = vi.fn();
 const handleOpenAnnotations = vi.fn();
 const onDeleteExcerpt = vi.fn();
+const legacyNotebook: BookNote = {
+  id: 'notebook',
+  type: 'notebook',
+  cfi: 'epubcfi(/6/2)',
+  note: 'Legacy notebook',
+  createdAt: 1,
+  updatedAt: 1,
+};
 const defaultProps = {
   bookKey: 'book-view',
   handleOpenAnnotations,
   excerpts: [] as BookNote[],
   onDeleteExcerpt,
+  notebook: legacyNotebook,
+  compatibilityCfi: legacyNotebook.cfi,
 };
 vi.mock('@/app/reader/hooks/useNotebookDocumentCoordinator', () => ({
   flushNotebookDocument: (bookKey: string) => flushNotebookDocument(bookKey),
+}));
+vi.mock('@/app/reader/hooks/useSaveNotebookMetaWill', () => ({
+  useSaveNotebookMetaWill: () => saveNotebookMetaWill,
 }));
 
 describe('NotebookEditor', () => {
@@ -35,6 +49,14 @@ describe('NotebookEditor', () => {
     expect(editor.getAttribute('spellcheck')).toBe('true');
     expect(editor.classList.contains('select-text')).toBe(true);
     expect(screen.queryByText('No Notes')).toBeNull();
+  });
+
+  it('seeds a meta-will editor for a missing notebook when a CFI is available', () => {
+    render(<NotebookEditor {...defaultProps} notebook={null} />);
+
+    expect(screen.getByRole('textbox', { name: 'Why I read it' })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Still open' })).toBeTruthy();
+    expect(saveNotebookMetaWill).toHaveBeenCalledTimes(1);
   });
 
   it('updates the isolated document session while typing', () => {
@@ -119,6 +141,7 @@ describe('NotebookEditor', () => {
 
     render(
       <NotebookEditor
+        {...defaultProps}
         bookKey='book-view'
         handleOpenAnnotations={handleOpenAnnotations}
         excerpts={[excerpt]}

@@ -9,6 +9,7 @@ import {
   upsertNotebookRecord,
   validateNotebookMutation,
 } from '@/app/reader/utils/notebookDocument';
+import { createEmptyMetaWill } from '@/utils/metaWill';
 
 const makeNotebook = (overrides: Partial<BookNote> = {}): BookNote => ({
   id: NOTEBOOK_ID,
@@ -79,6 +80,13 @@ describe('Notebook document helpers', () => {
       updatedAt: 300,
     });
     expect(result.booknotes).toEqual([annotation, result.notebook]);
+  });
+
+  it('stores meta-will metadata when creating the notebook', () => {
+    const metaWill = createEmptyMetaWill();
+    const result = upsertNotebookRecord([], 'composed note', 'epubcfi(/6/2)', 300, true, metaWill)!;
+
+    expect(result.notebook.metaWill).toBe(metaWill);
   });
 
   it('updates rather than duplicates the singleton and keeps a cleared document live', () => {
