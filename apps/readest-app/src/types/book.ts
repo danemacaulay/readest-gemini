@@ -214,6 +214,22 @@ export type AskRegister = {
   feedback?: AskRegisterFeedback;
 };
 
+export type MetaWillSectionId = 'why' | 'shifted' | 'take' | 'refuse' | 'open';
+
+export type MetaWillNoteLink = {
+  booknoteId: string;
+  excerpt?: string;
+  chapterLabel?: string;
+};
+
+export type MetaWillSection = {
+  id: MetaWillSectionId;
+  text: string;
+  links: MetaWillNoteLink[];
+};
+
+export type MetaWill = { sections: MetaWillSection[] };
+
 export interface BookNote {
   bookHash?: string;
   metaHash?: string;
@@ -242,6 +258,8 @@ export interface BookNote {
    * Never written into `note`.
    */
   askRegisters?: AskRegister[];
+  /** Local-only; cloud sync may drop this field. Book reading frame (meta-will). */
+  metaWill?: MetaWill;
 
   createdAt: number;
   updatedAt: number;
