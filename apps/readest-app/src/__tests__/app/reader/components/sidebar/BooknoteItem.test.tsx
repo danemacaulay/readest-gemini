@@ -486,3 +486,78 @@ describe('BooknoteItem contribution marker', () => {
     expect(screen.queryByText('Co')).toBeNull();
   });
 });
+
+describe('BooknoteItem ask registers', () => {
+  const regs = [
+    { kind: 'what' as const, text: 'Says X.' },
+    { kind: 'how' as const, text: 'By Y.' },
+    { kind: 'why' as const, text: 'Because Z.' },
+    { kind: 'should' as const, text: 'Mostly right.' },
+  ];
+
+  it('shows an empty-note placeholder above read-only registers after Ask', () => {
+    renderItem(makeItem({ note: '', contribution: 'ai', askRegisters: [...regs] }));
+    expect(screen.getByText('Add your thoughts…')).toBeTruthy();
+    expect(screen.getByText('Ask · read only')).toBeTruthy();
+    expect(screen.getByText('Says X.')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Like' })).toHaveLength(4);
+  });
+
+  it('shows the human note above registers after the reader writes', () => {
+    renderItem(
+      makeItem({ note: 'my own words', contribution: 'co-authored', askRegisters: [...regs] }),
+    );
+    expect(screen.getByText('my own words')).toBeTruthy();
+    expect(screen.getByText('Ask · read only')).toBeTruthy();
+    expect(screen.queryByText('Add your thoughts…')).toBeNull();
+  });
+
+  it('persists a reaction without navigating', async () => {
+    const item = makeItem({ note: '', contribution: 'ai', askRegisters: [...regs] });
+    mocks.state.booknotes = [item];
+    const dispatch = vi.spyOn(eventDispatcher, 'dispatch');
+    renderItem(item);
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: 'Incorrect' })[3]!);
+    });
+    expect((mocks.state.booknotes[0] as BookNote).askRegisters![3]!.feedback?.verdict).toBe(
+      'incorrect',
+    );
+    expect((mocks.state.booknotes[0] as BookNote).updatedAt).toBe(1000);
+    expect(mocks.saveConfig).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalledWith('navigate', expect.anything());
+  });
+
+  it('marks the active reaction with aria-pressed', () => {
+    const withFeedback = [
+      { ...regs[0]!, feedback: { rating: 'like' as const, updatedAt: 1 } },
+      ...regs.slice(1),
+    ];
+    renderItem(makeItem({ note: '', contribution: 'ai', askRegisters: withFeedback }));
+    expect(screen.getAllByRole('button', { name: 'Like' })[0]!.getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getAllByRole('button', { name: 'Like' })[1]!.getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+  });
+
+  it('saves a proposal from the inline editor', async () => {
+    const item = makeItem({ note: '', contribution: 'ai', askRegisters: [...regs] });
+    mocks.state.booknotes = [item];
+    const { unmount } = renderItem(item);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Propose' })[0]!);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'It says less than X.' } });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save'));
+    });
+    expect((mocks.state.booknotes[0] as BookNote).askRegisters![0]!.feedback?.proposal).toBe(
+      'It says less than X.',
+    );
+    expect(screen.queryByRole('textbox')).toBeNull();
+    // Store update does not re-render the prop-driven fixture; remount from state.
+    unmount();
+    renderItem(mocks.state.booknotes[0] as BookNote);
+    expect(screen.getByText(/It says less than X\./)).toBeTruthy();
+  });
+});

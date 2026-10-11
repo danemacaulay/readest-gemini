@@ -21,15 +21,18 @@ import { DEFAULT_NOTE_EXPORT_CONFIG } from '@/services/constants';
 import { removeBookNoteOverlays } from '../../utils/annotatorUtil';
 import { parseNoteMarkdown } from '../../utils/noteMarkdown';
 import { useSaveBooknoteNoteText } from '../../hooks/useSaveBooknoteNoteText';
+import { useSaveAskRegisterFeedback } from '../../hooks/useSaveAskRegisterFeedback';
 import { useInlineTextEditor } from '../../hooks/useInlineTextEditor';
 import TextButton from '@/components/TextButton';
 import TextEditor from '@/components/TextEditor';
 import { BooknoteTimeLabel } from './BooknoteTime';
+import AskRegisters from './AskRegisters';
 import { parseEchoNoteRef } from '@/services/echoes/createEchoStub';
 import { getPersistentEchoStore } from '@/services/echoes/echoStore';
 import { deleteEchoTrail } from '@/services/echoes/echoSync';
 import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService';
 import { useEchoesUiStore } from '@/store/echoesUiStore';
+import { setAskProposal, toggleAskReaction } from '@/utils/askRegisterFeedback';
 
 interface BooknoteItemProps {
   bookKey: string;
@@ -67,6 +70,9 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   // Native annotation-linked trails are NOT stubs — they render as normal notes.
   const isEcho = item.type === 'echo' || !!parseEchoNoteRef(item.note ?? '');
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
+  const saveAskFeedback = useSaveAskRegisterFeedback(bookKey);
+  const askRegisters = item.askRegisters;
+  const hasAskRegisters = !!askRegisters?.length;
 
   const openLinkedEchoTrail = (trailId: string) => {
     useEchoesUiStore.getState().setActiveEchoId(trailId);
@@ -282,11 +288,50 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   }
 
   const isEditable =
-    !isEcho && (!!item.note || isBookmark || (!!inlineNoteEditing && item.type === 'annotation'));
+    !isEcho &&
+    (!!item.note ||
+      hasAskRegisters ||
+      isBookmark ||
+      (!!inlineNoteEditing && item.type === 'annotation'));
   const actionButtonReveal = clsx(
     'group-focus-within:opacity-100',
     revealOnHover && 'group-hover:opacity-100',
   );
+
+  const startYourNote = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (inlineNoteEditing) {
+      startEdit(item.note || '');
+      return;
+    }
+    editNote(item);
+  };
+
+  const askRegistersBlock =
+    hasAskRegisters && askRegisters ? (
+      <div
+        className='mt-2'
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <div className='border-base-300 mb-2 border-t pt-2'>
+          <div className='content font-size-xs mb-1.5 opacity-70'>{_('Ask · read only')}</div>
+          <AskRegisters
+            registers={askRegisters}
+            onReact={(kind, reaction) => {
+              void saveAskFeedback(item.id, kind, (feedback) =>
+                toggleAskReaction(feedback, reaction, Date.now()),
+              );
+            }}
+            onProposal={(kind, text) => {
+              void saveAskFeedback(item.id, kind, (feedback) =>
+                setAskProposal(feedback, text, Date.now()),
+              );
+            }}
+          />
+        </div>
+      </div>
+    ) : null;
 
   return (
     <li
@@ -333,7 +378,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
         {isEcho ? (
           <div className='content font-size-sm mb-1 font-medium'>{_('Echo · Saved trail')}</div>
         ) : (
-          item.note && (
+          (item.note || hasAskRegisters) && (
             <>
               {item.contribution === 'ai' || item.contribution === 'co-authored' ? (
                 <div
@@ -343,16 +388,39 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
                   {item.contribution === 'ai' ? _('AI') : _('Co')}
                 </div>
               ) : null}
-              <div
-                className='content prose prose-sm font-size-sm'
-                dir='auto'
-                dangerouslySetInnerHTML={{ __html: noteHtml }}
-              ></div>
+              {hasAskRegisters ? (
+                <>
+                  {item.note ? (
+                    <div
+                      className='content prose prose-sm font-size-sm'
+                      dir='auto'
+                      dangerouslySetInnerHTML={{ __html: noteHtml }}
+                    ></div>
+                  ) : (
+                    <button
+                      type='button'
+                      className='content font-size-sm text-base-content/50 border-base-300 eink-bordered w-full rounded-lg border border-dashed px-2 py-2 text-start'
+                      onClick={startYourNote}
+                    >
+                      {_('Add your thoughts…')}
+                    </button>
+                  )}
+                  {askRegistersBlock}
+                </>
+              ) : (
+                item.note && (
+                  <div
+                    className='content prose prose-sm font-size-sm'
+                    dir='auto'
+                    dangerouslySetInnerHTML={{ __html: noteHtml }}
+                  ></div>
+                )
+              )}
             </>
           )
         )}
         <div className='flex items-start'>
-          {(item.note || isEcho) && (
+          {(item.note || isEcho || hasAskRegisters) && (
             <div
               className='me-2 mt-2.5 min-h-full self-stretch rounded-xl bg-gray-300'
               style={{
@@ -361,12 +429,16 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
             ></div>
           )}
           <div
-            className={clsx('content font-size-sm line-clamp-3', (item.note || isEcho) && 'mt-2')}
+            className={clsx(
+              'content font-size-sm line-clamp-3',
+              (item.note || isEcho || hasAskRegisters) && 'mt-2',
+            )}
           >
             <span
               className={clsx(
                 'booknote-text inline leading-normal',
-                (item.note || isEcho) && 'content font-size-xs text-base-content',
+                (item.note || isEcho || hasAskRegisters) &&
+                  'content font-size-xs text-base-content',
                 (item.style === 'underline' || item.style === 'squiggly') &&
                   'underline decoration-2',
                 item.style === 'highlight' && 'rounded-[4px] px-[2px] py-[1px]',
