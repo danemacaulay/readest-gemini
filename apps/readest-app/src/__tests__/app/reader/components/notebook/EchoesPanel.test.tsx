@@ -283,6 +283,44 @@ describe('EchoesPanel', () => {
     expect(h.runEchoes).toHaveBeenCalled();
   });
 
+  test('passes the notebook reading intention to runEchoes', async () => {
+    h.booknotes = [
+      {
+        id: 'notebook',
+        type: 'notebook',
+        cfi: '',
+        note: '',
+        metaWill: {
+          sections: [
+            { id: 'why', text: '  pressure-test meta-will  ', links: [] },
+            { id: 'shifted', text: '', links: [] },
+            { id: 'take', text: '', links: [] },
+            { id: 'refuse', text: '', links: [] },
+            { id: 'open', text: '', links: [] },
+          ],
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    h.runEchoes.mockResolvedValue(makeTrail());
+
+    render(<EchoesPanel bookKey={BOOK_KEY} />);
+
+    await act(async () => {
+      useEchoesUiStore.getState().requestEchoesRun({
+        bookHash: 'bookhash',
+        bookTitle: 'Meditations',
+        seedText: 'passage',
+      });
+    });
+
+    await waitFor(() => {
+      expect(h.runEchoes).toHaveBeenCalled();
+    });
+    expect(h.runEchoes.mock.calls[0]?.[3]).toBe('pressure-test meta-will');
+  });
+
   test('on failure with annotationIsNew, removes empty annotation placeholder', async () => {
     h.booknotes = [
       {

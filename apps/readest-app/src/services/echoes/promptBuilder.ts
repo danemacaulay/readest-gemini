@@ -14,6 +14,7 @@ export type EchoesPromptInput = {
   bookTitle?: string;
   seedText?: string;
   question?: string;
+  readerIntention?: string;
   sources: LightRAGSource[];
   contextText?: string;
   synthesisContext?: string;
@@ -78,6 +79,9 @@ export function buildEchoesPrompt(input: EchoesPromptInput): EchoesPromptResult 
 
   const bookLine = input.bookTitle?.trim() ? `Seed book: ${input.bookTitle.trim()}\n` : '';
   const questionLine = input.question?.trim() ? `User question: ${input.question.trim()}\n` : '';
+  const intentionLine = input.readerIntention?.trim()
+    ? `Reader intention: ${input.readerIntention.trim()}\n`
+    : '';
   const seedBlock = seed.text
     ? `Seed passage:\n"""\n${seed.text}\n"""\n`
     : 'Seed passage: (none — synthesize from the question and library context only)\n';
@@ -91,7 +95,7 @@ Rules:
 - Aim for about 150–350 words: contrast, affinity, and a clear takeaway — not a chat reply and not a bullet dump.
 - Lean on the quotes; the pack is intentionally rich.
 
-${bookLine}${questionLine}${seedBlock}
+${bookLine}${questionLine}${intentionLine}${seedBlock}
 Rich library pack:
 ${library.text || '(none)'}
 

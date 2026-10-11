@@ -173,20 +173,23 @@ export async function runEchoes(
   seed: EchoTrailSeed,
   aiSettings: EchoesAiSettings,
   deps: EchoesDeps,
+  intention?: string | null,
 ): Promise<EchoTrail> {
   const retrieve = deps.retrieve ?? retrieveFromLightRAG;
   const complete = deps.complete ?? completeWithAntigravity;
+  const readerIntention = intention?.trim() || undefined;
+  const baseQuery = retrieveQuery(seed);
+  const query = readerIntention ? `${baseQuery}\nReader intention: ${readerIntention}` : baseQuery;
 
   const retrieved = await retrieve({
     baseUrl: aiSettings.lightragBaseUrl,
-    query: retrieveQuery(seed),
+    query,
     selection: seed.seedText,
     mode: aiSettings.lightragMode,
     profile: 'echoes',
   });
 
   const sources = retrieved.sources ?? [];
-  const query = retrieveQuery(seed);
   const trace = buildEchoesRetrieveTrace(query, sources);
   if (isEchoesRetrieveDeferred(trace)) {
     throw new EchoesDeferredError(trace);
@@ -203,6 +206,7 @@ export async function runEchoes(
     bookTitle: seed.bookTitle,
     seedText: seed.seedText,
     question: seed.question,
+    readerIntention,
     sources: keptSources,
     contextText: omitServerPack ? undefined : retrieved.contextText,
     synthesisContext: omitServerPack ? undefined : retrieved.synthesisContext,

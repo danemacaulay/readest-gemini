@@ -31,6 +31,7 @@ import {
   removeEmptyAnnotationPlaceholder,
 } from '../../utils/annotatorUtil';
 import { eventDispatcher } from '@/utils/event';
+import { getReadingIntention } from '@/utils/metaWill';
 import { focusExistingReaderWindow, navigateToReader } from '@/utils/nav';
 import { emitTo } from '@tauri-apps/api/event';
 
@@ -139,6 +140,9 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
 
     void (async () => {
       try {
+        const notebook = getConfig(bookKey)?.booknotes?.find(
+          (note) => note.id === 'notebook' && note.type === 'notebook' && !note.deletedAt,
+        );
         const next = await runEchoes(
           seed,
           {
@@ -151,6 +155,7 @@ const EchoesPanel: React.FC<EchoesPanelProps> = ({ bookKey }) => {
             runCommand: tauriRunCommand,
             abortSignal: controller.signal,
           },
+          getReadingIntention(notebook?.metaWill),
         );
         if (controller.signal.aborted) return;
         const noteId = next.noteId ?? annotationId;

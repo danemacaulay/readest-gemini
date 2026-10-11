@@ -24,6 +24,26 @@ import type { EchoTrail } from '@/services/echoes/types';
 type CompleteFn = typeof completeWithAntigravity;
 
 describe('buildEchoesPrompt', () => {
+  it('omits Reader intention when unset', () => {
+    const { prompt } = buildEchoesPrompt({
+      sources: [],
+      seedText: 'x',
+      readerIntention: '   ',
+    });
+
+    expect(prompt).not.toContain('Reader intention:');
+  });
+
+  it('includes Reader intention line when set', () => {
+    const { prompt } = buildEchoesPrompt({
+      sources: [],
+      seedText: 'x',
+      readerIntention: 'pressure-test meta-will',
+    });
+
+    expect(prompt).toContain('Reader intention: pressure-test meta-will');
+  });
+
   it('requires citing provided source ids and forbids inventing books', () => {
     const { prompt, truncatedSelection, truncatedLibrary } = buildEchoesPrompt({
       bookTitle: 'Meditations',
@@ -72,6 +92,63 @@ describe('buildEchoesPrompt', () => {
 });
 
 describe('runEchoes', () => {
+  it('tilts retrieval and prompt only when an intention is provided', async () => {
+    const seed = {
+      bookHash: 'hash-1',
+      bookTitle: 'Meditations',
+      seedText: 'The impediment…',
+      question: 'Where else?',
+    };
+    const aiSettings = {
+      lightragBaseUrl: 'http://127.0.0.1:8765',
+      lightragMode: 'hybrid',
+      agyPath: 'agy',
+    };
+    const retrieve = vi.fn(async (_input: { query: string }) => ({
+      sources: [{ id: 's1', title: 'T', snippet: 'x' }],
+      contextText: '',
+    }));
+    const complete = vi.fn(async (_prompt: string) => ({
+      text: 'Take.',
+      conversationId: 'agy-intention',
+    }));
+
+    await runEchoes(
+      seed,
+      aiSettings,
+      {
+        retrieve,
+        complete: complete as CompleteFn,
+        runCommand: vi.fn(),
+        store: createMemoryEchoStore(),
+      },
+      'pressure-test meta-will',
+    );
+
+    expect(retrieve.mock.calls[0]?.[0].query).toBe(
+      'Where else?\nReader intention: pressure-test meta-will',
+    );
+    expect(complete.mock.calls[0]?.[0]).toContain('Reader intention: pressure-test meta-will');
+
+    retrieve.mockClear();
+    complete.mockClear();
+
+    await runEchoes(
+      seed,
+      aiSettings,
+      {
+        retrieve,
+        complete: complete as CompleteFn,
+        runCommand: vi.fn(),
+        store: createMemoryEchoStore(),
+      },
+      '   ',
+    );
+
+    expect(retrieve.mock.calls[0]?.[0].query).toBe('Where else?');
+    expect(complete.mock.calls[0]?.[0]).not.toContain('Reader intention:');
+  });
+
   it('retrieves, completes with sandbox, and upserts a promoted trail with annotationId', async () => {
     createEchoBookNoteStub.mockClear();
     const store = createMemoryEchoStore();
