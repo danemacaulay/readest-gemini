@@ -1,9 +1,13 @@
 import { retrieveFromLightRAG } from '@/services/ai/lightrag/client';
 import type { EchoesPassage, LightRAGSource } from '@/services/ai/lightrag/types';
 import { completeWithAntigravity, type RunCommand } from '@/services/ai/ask/antigravityClient';
+import { buildEchoesRetrieveTrace, isEchoesRetrieveDeferred } from './buildRetrieveTrace';
 import type { EchoStore } from './echoStore';
+import { EchoesDeferredError } from './EchoesDeferredError';
 import { buildEchoesPrompt } from './promptBuilder';
 import type { EchoSource, EchoTrail, EchoTrailSeed } from './types';
+
+export { EchoesDeferredError } from './EchoesDeferredError';
 
 export type EchoesAiSettings = {
   lightragBaseUrl: string;
@@ -46,7 +50,7 @@ function toEchoSources(sources: LightRAGSource[], passages?: EchoesPassage[]): E
   const byId = new Map((passages ?? []).map((p) => [p.id, p]));
   return sources.map((s) => {
     const passage = byId.get(s.id);
-    return {
+    const source: EchoSource = {
       id: s.id,
       title: s.title,
       snippet: s.snippet,
@@ -54,6 +58,8 @@ function toEchoSources(sources: LightRAGSource[], passages?: EchoesPassage[]): E
       bookTitle: s.bookTitle || passage?.bookTitle,
       content: passage?.content || passage?.snippet || s.snippet,
     };
+    if (s.score !== undefined) source.score = s.score;
+    return source;
   });
 }
 
@@ -180,14 +186,27 @@ export async function runEchoes(
   });
 
   const sources = retrieved.sources ?? [];
+  const query = retrieveQuery(seed);
+  const trace = buildEchoesRetrieveTrace(query, sources);
+  if (isEchoesRetrieveDeferred(trace)) {
+    throw new EchoesDeferredError(trace);
+  }
+
+  const keptIds = new Set(trace.retrieved.map((entry) => entry.id));
+  const keptSources = sources.filter((source) => keptIds.has(source.id));
+  const keptPassages = retrieved.passages?.filter((passage) => keptIds.has(passage.id));
+  // Server packs include all hits; when we drop any by score, omit the pack so
+  // the model only sees kept passages (Trace must match what was synthesized).
+  const omitServerPack = trace.dropped.length > 0;
+
   const built = buildEchoesPrompt({
     bookTitle: seed.bookTitle,
     seedText: seed.seedText,
     question: seed.question,
-    sources,
-    contextText: retrieved.contextText,
-    synthesisContext: retrieved.synthesisContext,
-    passages: retrieved.passages,
+    sources: keptSources,
+    contextText: omitServerPack ? undefined : retrieved.contextText,
+    synthesisContext: omitServerPack ? undefined : retrieved.synthesisContext,
+    passages: keptPassages,
     ideas: retrieved.ideas,
     connections: retrieved.connections,
   });
@@ -209,15 +228,17 @@ export async function runEchoes(
     seed: persistSeed,
     noteId: seed.annotationId,
     synthesis: text,
-    sources: toEchoSources(sources, retrieved.passages),
+    sources: toEchoSources(keptSources, keptPassages),
     books: retrieved.books?.map((b) => ({
       bookId: b.bookId,
       bookTitle: b.bookTitle,
       referenceId: b.referenceId,
       passageCount: b.passageCount,
     })),
-    synthesisContext: retrieved.synthesisContext || retrieved.contextText,
-    passages: retrieved.passages?.map((p) => ({
+    synthesisContext: omitServerPack
+      ? undefined
+      : retrieved.synthesisContext || retrieved.contextText,
+    passages: keptPassages?.map((p) => ({
       id: p.id,
       title: p.title,
       bookId: p.bookId,
@@ -233,12 +254,16 @@ export async function runEchoes(
       type: i.type,
       description: i.description,
     })),
-    connections: retrieved.connections?.map((c) => ({
-      id: c.id,
-      from: c.from,
-      to: c.to,
-      description: c.description,
-    })),
+    connections: retrieved.connections?.map((c) => {
+      const connection = {
+        id: c.id,
+        from: c.from,
+        to: c.to,
+        description: c.description,
+      };
+      return c.confidence !== undefined ? { ...connection, confidence: c.confidence } : connection;
+    }),
+    trace,
     agyConversationId: conversationId,
   });
 }

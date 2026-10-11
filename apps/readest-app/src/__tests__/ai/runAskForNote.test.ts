@@ -28,7 +28,7 @@ describe('runAskForNote', () => {
 
     expect(ok).toBe(true);
     expect(ensureHighlight).toHaveBeenCalledBefore(runAsk as never);
-    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello');
+    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello', { contribution: 'ai' });
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ type: 'info' }));
   });
 
@@ -81,7 +81,7 @@ describe('runAskForNote', () => {
       },
     );
     expect(ok).toBe(false);
-    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello');
+    expect(saveNote).toHaveBeenCalledWith('n1', 'Hello', { contribution: 'ai' });
     expect(toast).not.toHaveBeenCalled();
   });
 

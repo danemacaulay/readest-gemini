@@ -1,5 +1,10 @@
-import { BookNote } from '@/types/book';
+import { BookNote, BookNoteContribution } from '@/types/book';
+import { resolveContributionUpdate } from '@/utils/booknoteContribution';
 import { nextBooknoteStamp } from '@/utils/booknoteStamp';
+
+export interface UpdateBooknoteNoteTextOptions {
+  contribution?: BookNoteContribution;
+}
 
 export interface UpdateBooknoteNoteTextResult {
   booknotes: BookNote[];
@@ -30,6 +35,7 @@ export function updateBooknoteNoteText(
   booknoteId: string,
   noteText: string,
   now: number,
+  options?: UpdateBooknoteNoteTextOptions,
 ): UpdateBooknoteNoteTextResult | null {
   const existingIndex = booknotes.findIndex(
     (booknote) => booknote.id === booknoteId && !booknote.deletedAt,
@@ -38,11 +44,17 @@ export function updateBooknoteNoteText(
 
   const existingBooknote = booknotes[existingIndex]!;
   const normalizedNoteText = noteText.trim() ? noteText : '';
+  const contribution = resolveContributionUpdate(existingBooknote, options);
   const updatedBooknote: BookNote = {
     ...existingBooknote,
     note: normalizedNoteText,
     updatedAt: nextBooknoteStamp(existingBooknote, now),
   };
+  if (contribution === undefined) {
+    delete updatedBooknote.contribution;
+  } else {
+    updatedBooknote.contribution = contribution;
+  }
 
   return {
     booknotes: booknotes.map((booknote, index) =>

@@ -468,3 +468,21 @@ it('keeps the inline draft through a failed save and closes only after retry suc
   expect(screen.queryByRole('textbox')).toBeNull();
   toast.mockRestore();
 });
+
+describe('BooknoteItem contribution marker', () => {
+  it('shows AI when contribution is ai', () => {
+    renderItem(makeItem({ note: 'Ask answer', contribution: 'ai' }));
+    expect(screen.getByText('AI')).toBeTruthy();
+  });
+
+  it('shows Co when contribution is co-authored', () => {
+    renderItem(makeItem({ note: 'Edited answer', contribution: 'co-authored' }));
+    expect(screen.getByText('Co')).toBeTruthy();
+  });
+
+  it('shows neither marker when contribution is unset', () => {
+    renderItem(makeItem({ note: 'Handwritten note' }));
+    expect(screen.queryByText('AI')).toBeNull();
+    expect(screen.queryByText('Co')).toBeNull();
+  });
+});

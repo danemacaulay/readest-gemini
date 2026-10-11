@@ -276,7 +276,9 @@ describe('EchoesPanel', () => {
     });
 
     await waitFor(() => {
-      expect(h.saveBooknoteNoteText).toHaveBeenCalledWith('anno-new', 'Written into the note.');
+      expect(h.saveBooknoteNoteText).toHaveBeenCalledWith('anno-new', 'Written into the note.', {
+        contribution: 'ai',
+      });
     });
     expect(h.runEchoes).toHaveBeenCalled();
   });
@@ -321,6 +323,91 @@ describe('EchoesPanel', () => {
     );
     expect(h.removeBookNoteOverlays.mock.calls[0]?.[1]).not.toHaveProperty('deletedAt');
     expect(h.saveBooknoteNoteText).not.toHaveBeenCalled();
+  });
+
+  test('on EchoesDeferredError, info-toasts and removes new placeholder without error banner', async () => {
+    const { EchoesDeferredError } = await import('@/services/echoes/EchoesDeferredError');
+    h.booknotes = [
+      {
+        id: 'anno-new',
+        type: 'annotation',
+        cfi: 'epubcfi(/6/2)',
+        text: 'passage',
+        style: 'highlight',
+        color: 'yellow',
+        note: '',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    h.runEchoes.mockRejectedValue(
+      new EchoesDeferredError({
+        query: 'passage',
+        retrieved: [],
+        dropped: [{ id: 'x', score: 0.1, reason: 'below_threshold' }],
+        deferred: true,
+        minScore: 0.3,
+      }),
+    );
+
+    render(<EchoesPanel bookKey={BOOK_KEY} />);
+
+    await act(async () => {
+      useEchoesUiStore.getState().requestEchoesRun({
+        bookHash: 'bookhash',
+        bookTitle: 'Meditations',
+        seedText: 'passage',
+        annotationId: 'anno-new',
+        annotationIsNew: true,
+      });
+    });
+
+    await waitFor(() => {
+      expect(h.toast).toHaveBeenCalledWith(
+        'toast',
+        expect.objectContaining({
+          type: 'info',
+          message: 'Nothing in your library points this direction',
+        }),
+      );
+    });
+    expect(useEchoesUiStore.getState().error).toBeNull();
+    expect(h.updateBooknotes).toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  test('shows Trace when trail.trace is present and hides it when absent', async () => {
+    const withTrace = makeTrail({
+      trace: {
+        query: 'Where else?',
+        retrieved: [{ id: 's1', title: 'Enchiridion', score: 0.8 }],
+        dropped: [],
+        deferred: false,
+        minScore: 0.3,
+      },
+      sources: [{ id: 's1', title: 'Enchiridion', snippet: '…' }],
+    });
+    h.storeGet.mockResolvedValue(withTrace);
+    act(() => {
+      useEchoesUiStore.getState().setActiveEchoId(withTrace.id);
+    });
+    const { unmount } = render(<EchoesPanel bookKey={BOOK_KEY} />);
+    await waitFor(() => {
+      expect(screen.getByText('Trace')).toBeTruthy();
+    });
+    expect(screen.getByText(/Where else\?/)).toBeTruthy();
+    unmount();
+
+    const withoutTrace = makeTrail({ id: 'trail-2' });
+    h.storeGet.mockResolvedValue(withoutTrace);
+    act(() => {
+      useEchoesUiStore.getState().setActiveEchoId(withoutTrace.id);
+    });
+    render(<EchoesPanel bookKey={BOOK_KEY} />);
+    await waitFor(() => {
+      expect(screen.getByText('Comparative synthesis text.')).toBeTruthy();
+    });
+    expect(screen.queryByText('Trace')).toBeNull();
   });
 
   test('on failure, clears pendingSeed so remount does not re-fire runEchoes', async () => {

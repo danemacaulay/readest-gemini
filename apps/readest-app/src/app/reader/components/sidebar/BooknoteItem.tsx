@@ -334,11 +334,21 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
           <div className='content font-size-sm mb-1 font-medium'>{_('Echo · Saved trail')}</div>
         ) : (
           item.note && (
-            <div
-              className='content prose prose-sm font-size-sm'
-              dir='auto'
-              dangerouslySetInnerHTML={{ __html: noteHtml }}
-            ></div>
+            <>
+              {item.contribution === 'ai' || item.contribution === 'co-authored' ? (
+                <div
+                  className='content font-size-xs mb-0.5 opacity-70'
+                  data-testid='booknote-contribution'
+                >
+                  {item.contribution === 'ai' ? _('AI') : _('Co')}
+                </div>
+              ) : null}
+              <div
+                className='content prose prose-sm font-size-sm'
+                dir='auto'
+                dangerouslySetInnerHTML={{ __html: noteHtml }}
+              ></div>
+            </>
           )
         )}
         <div className='flex items-start'>

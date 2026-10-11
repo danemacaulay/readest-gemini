@@ -196,6 +196,9 @@ export interface TimeInfo {
   total: number;
 }
 
+/** Local-only authorship of note body text. omit = human (legacy). Cloud sync may drop this field. */
+export type BookNoteContribution = 'human' | 'ai' | 'co-authored';
+
 export interface BookNote {
   bookHash?: string;
   metaHash?: string;
@@ -217,6 +220,8 @@ export interface BookNote {
    * bookmarks and excerpts, and for fixed-layout formats (e.g. PDF).
    */
   global?: boolean;
+  /** Local-only; cloud sync may drop this field. omit = human (legacy). */
+  contribution?: BookNoteContribution;
 
   createdAt: number;
   updatedAt: number;
