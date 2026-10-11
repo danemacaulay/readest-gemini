@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useNotebookStore } from '@/store/notebookStore';
 import { useBookDataStore } from '@/store/bookDataStore';
+import { useMetaWillUiStore } from '@/store/metaWillUiStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { useLongPress } from '@/hooks/useLongPress';
@@ -34,6 +35,8 @@ import { fileSystemFromAppService } from '@/services/ai/fileSystemFromAppService
 import { useEchoesUiStore } from '@/store/echoesUiStore';
 import { setAskProposal, toggleAskReaction } from '@/utils/askRegisterFeedback';
 import { renderAskRegistersMarkdown } from '@/utils/askRegisters';
+import { appendMetaWillLink } from '@/utils/metaWill';
+import { useSaveNotebookMetaWill } from '../../hooks/useSaveNotebookMetaWill';
 
 interface BooknoteItemProps {
   bookKey: string;
@@ -58,7 +61,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const { settings } = useSettingsStore();
   const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
-  const { setNotebookEditAnnotation, setNotebookVisible, setNotebookActiveTab } =
+  const { isNotebookVisible, setNotebookEditAnnotation, setNotebookVisible, setNotebookActiveTab } =
     useNotebookStore();
 
   const globalReadSettings = settings.globalReadSettings;
@@ -72,6 +75,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
   const isEcho = item.type === 'echo' || !!parseEchoNoteRef(item.note ?? '');
   const saveBooknoteNoteText = useSaveBooknoteNoteText(bookKey);
   const saveAskFeedback = useSaveAskRegisterFeedback(bookKey);
+  const saveMetaWill = useSaveNotebookMetaWill(bookKey);
   const askRegisters = item.askRegisters;
   const hasAskRegisters = !!askRegisters?.length;
 
@@ -157,6 +161,31 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({
     // don't hide the notebook (unpinned) or remount a reader for the same book.
     if (isEcho) {
       onClick?.();
+      return;
+    }
+    const focusedSectionId = useMetaWillUiStore.getState().focusedSectionId;
+    const isMobile =
+      appService?.isMobile === true || window.innerWidth < 640 || window.innerHeight < 640;
+    const notebook = getConfig(bookKey)?.booknotes?.find(
+      (note) =>
+        note.id === 'notebook' &&
+        note.type === 'notebook' &&
+        !note.deletedAt &&
+        note.metaWill !== undefined,
+    );
+    if (
+      !isMobile &&
+      isNotebookVisible &&
+      focusedSectionId &&
+      item.type === 'annotation' &&
+      notebook?.metaWill
+    ) {
+      void saveMetaWill(
+        appendMetaWillLink(notebook.metaWill, focusedSectionId, {
+          booknoteId: item.id,
+          excerpt: item.text || item.note || _('Annotation'),
+        }),
+      );
       return;
     }
     // Native annotation-linked trails open Echoes in place (parent shared index).
