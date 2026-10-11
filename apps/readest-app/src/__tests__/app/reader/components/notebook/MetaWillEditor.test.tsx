@@ -13,6 +13,7 @@ describe('MetaWillEditor', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    saveMetaWill.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -46,5 +47,19 @@ describe('MetaWillEditor', () => {
       text: 'To understand leadership',
       links: [],
     });
+  });
+
+  it('flushes a pending edit when unmounted before the debounce', () => {
+    const { unmount } = render(
+      <MetaWillEditor bookKey='book-view' metaWill={createEmptyMetaWill()} />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Why I read it' }), {
+      target: { value: 'Do not lose this draft' },
+    });
+    unmount();
+
+    expect(saveMetaWill).toHaveBeenCalledTimes(1);
+    expect(saveMetaWill.mock.calls[0]?.[0].sections[0].text).toBe('Do not lose this draft');
   });
 });

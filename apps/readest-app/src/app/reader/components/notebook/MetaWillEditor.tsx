@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MetaWill } from '@/types/book';
 import { META_WILL_SECTION_LABELS } from '@/utils/metaWill';
 import { useSaveNotebookMetaWill } from '../../hooks/useSaveNotebookMetaWill';
@@ -20,23 +20,67 @@ const MetaWillEditor = ({
 }: MetaWillEditorProps) => {
   const [draft, setDraft] = useState(metaWill);
   const seededRef = useRef(false);
+  const draftRef = useRef(metaWill);
+  const dirtyRef = useRef(false);
+  const hasLocalEditsRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveMetaWill = useSaveNotebookMetaWill(bookKey);
+  const saveRef = useRef(saveMetaWill);
+  saveRef.current = saveMetaWill;
 
   useEffect(() => {
+    if (hasLocalEditsRef.current) return;
+    draftRef.current = metaWill;
     setDraft(metaWill);
   }, [metaWill]);
+
+  const flushDraft = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (!dirtyRef.current) return;
+
+    const savingDraft = draftRef.current;
+    dirtyRef.current = false;
+    void saveMetaWill(savingDraft).then((persisted) => {
+      if (draftRef.current !== savingDraft) return;
+      if (persisted) {
+        hasLocalEditsRef.current = false;
+      } else {
+        dirtyRef.current = true;
+      }
+    });
+  }, [saveMetaWill]);
 
   useEffect(() => {
     if (!seedOnMount || !compatibilityCfi || seededRef.current) return;
     seededRef.current = true;
-    void saveMetaWill(draft);
-  }, [compatibilityCfi, draft, saveMetaWill, seedOnMount]);
+    if (dirtyRef.current) {
+      flushDraft();
+    } else {
+      void saveMetaWill(draft);
+    }
+  }, [compatibilityCfi, draft, flushDraft, saveMetaWill, seedOnMount]);
 
   useEffect(() => {
-    if (draft === metaWill) return;
-    const timeout = setTimeout(() => void saveMetaWill(draft), SAVE_DEBOUNCE_MS);
-    return () => clearTimeout(timeout);
-  }, [draft, metaWill, saveMetaWill]);
+    if (!dirtyRef.current) return;
+    timeoutRef.current = setTimeout(flushDraft, SAVE_DEBOUNCE_MS);
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [draft, flushDraft]);
+
+  useEffect(
+    () => () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        void saveRef.current(draftRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <div className='flex h-full min-h-0 flex-col gap-3 overflow-y-auto'>
@@ -48,13 +92,20 @@ const MetaWillEditor = ({
             <textarea
               aria-label={label}
               value={section.text}
+              onBlur={flushDraft}
               onChange={(event) => {
                 const text = event.currentTarget.value;
-                setDraft((current) => ({
-                  sections: current.sections.map((candidate) =>
-                    candidate.id === section.id ? { ...candidate, text } : candidate,
-                  ),
-                }));
+                setDraft((current) => {
+                  const next = {
+                    sections: current.sections.map((candidate) =>
+                      candidate.id === section.id ? { ...candidate, text } : candidate,
+                    ),
+                  };
+                  draftRef.current = next;
+                  dirtyRef.current = true;
+                  hasLocalEditsRef.current = true;
+                  return next;
+                });
               }}
               className='eink-bordered border-base-300 bg-base-100 min-h-24 resize-y rounded-lg border p-2 font-normal'
               dir='auto'
