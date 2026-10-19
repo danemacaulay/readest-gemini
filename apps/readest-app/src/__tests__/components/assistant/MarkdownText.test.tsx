@@ -22,9 +22,11 @@ describe('assistant markdown plugins', () => {
   it('includes remark-math and rehype-katex for agy $$ replies', () => {
     expect(assistantRemarkPlugins.length).toBeGreaterThanOrEqual(2);
     expect(assistantRehypePlugins.length).toBeGreaterThanOrEqual(1);
-    const math = assistantRemarkPlugins.find(
-      (p) => Array.isArray(p) && typeof p[0] === 'function' && p[1]?.singleDollarTextMath === false,
-    );
+    const math = assistantRemarkPlugins.find((p) => {
+      if (!Array.isArray(p) || typeof p[0] !== 'function') return false;
+      const opts = p[1] as { singleDollarTextMath?: boolean } | undefined;
+      return opts?.singleDollarTextMath === false;
+    });
     expect(math).toBeTruthy();
   });
 });
