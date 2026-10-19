@@ -2,10 +2,11 @@ import { useCallback, useRef } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useNotebookDocumentStore } from '@/store/notebookDocumentStore';
+import { getBookProgress } from '@/store/readerProgressStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { MetaWill } from '@/types/book';
 import { composeMetaWillNote } from '@/utils/metaWill';
-import { upsertNotebookRecord } from '../utils/notebookDocument';
+import { resolveNotebookCompatibilityCfi, upsertNotebookRecord } from '../utils/notebookDocument';
 
 export function useSaveNotebookMetaWill(bookKey: string) {
   const { envConfig } = useEnv();
@@ -23,10 +24,14 @@ export function useSaveNotebookMetaWill(bookKey: string) {
 
       const previousBooknotes = config.booknotes ?? [];
       const note = composeMetaWillNote(metaWill);
+      const compatibilityCfi = resolveNotebookCompatibilityCfi(
+        config.location,
+        getBookProgress(bookKey)?.location,
+      );
       const update = upsertNotebookRecord(
         previousBooknotes,
         note,
-        config.location || null,
+        compatibilityCfi,
         Date.now(),
         true,
         metaWill,

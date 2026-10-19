@@ -20,6 +20,8 @@ import { nextBooknoteStamp } from '@/utils/booknoteStamp';
 import { Overlay } from '@/components/Overlay';
 import { saveSysSettings } from '@/helpers/settings';
 import useShortcuts from '@/hooks/useShortcuts';
+import { useBookProgress } from '@/store/readerProgressStore';
+import { resolveNotebookCompatibilityCfi } from '../../utils/notebookDocument';
 import {
   flushNotebookDocument,
   useNotebookDocumentCoordinator,
@@ -55,6 +57,7 @@ const Notebook: React.FC = () => {
   const { getBookData, getConfig, setConfig, updateBooknotes, saveConfig } = useBookDataStore();
   const { getViewSettings } = useReaderStore();
   const { activeConversationId } = useAIChatStore();
+  const bookProgress = useBookProgress(sideBarBookKey);
 
   useNotebookDocumentCoordinator(sideBarBookKey);
 
@@ -279,7 +282,10 @@ const Notebook: React.FC = () => {
             excerpts={excerptNotes}
             onDeleteExcerpt={handleDeleteExcerpt}
             notebook={notebook}
-            compatibilityCfi={config?.location || null}
+            compatibilityCfi={resolveNotebookCompatibilityCfi(
+              config?.location,
+              bookProgress?.location,
+            )}
           />
         )}
         <div

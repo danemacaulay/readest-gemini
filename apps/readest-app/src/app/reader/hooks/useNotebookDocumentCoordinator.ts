@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useEnv } from '@/context/EnvContext';
 import { useBookDataStore } from '@/store/bookDataStore';
+import { getBookProgress } from '@/store/readerProgressStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useNotebookDocumentStore } from '@/store/notebookDocumentStore';
 import {
@@ -9,6 +10,7 @@ import {
   NotebookFlushResult,
   createNotebookDocumentCoordinator,
 } from '@/app/reader/services/notebookDocumentCoordinator';
+import { resolveNotebookCompatibilityCfi } from '@/app/reader/utils/notebookDocument';
 import { getNotebookRecoveryKey } from '@/app/reader/utils/notebookRecovery';
 
 const coordinators = new Map<string, NotebookDocumentCoordinator>();
@@ -44,7 +46,11 @@ export const useNotebookDocumentCoordinator = (bookKey: string | null) => {
     const coordinator = createNotebookDocumentCoordinator({
       bookHash,
       getBooknotes: () => useBookDataStore.getState().getConfig(bookKey)?.booknotes ?? [],
-      getCompatibilityCfi: () => useBookDataStore.getState().getConfig(bookKey)?.location || null,
+      getCompatibilityCfi: () =>
+        resolveNotebookCompatibilityCfi(
+          useBookDataStore.getState().getConfig(bookKey)?.location,
+          getBookProgress(bookKey)?.location,
+        ),
       persistBooknotes: async (booknotes) => {
         const store = useBookDataStore.getState();
         const updatedConfig = store.updateBooknotes(bookKey, booknotes);

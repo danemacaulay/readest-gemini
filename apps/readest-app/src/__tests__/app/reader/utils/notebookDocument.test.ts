@@ -6,6 +6,7 @@ import {
   findNotebookRecord,
   getNotebookByteLength,
   insertNotebookMarkdown,
+  resolveNotebookCompatibilityCfi,
   upsertNotebookRecord,
   validateNotebookMutation,
 } from '@/app/reader/utils/notebookDocument';
@@ -22,6 +23,13 @@ const makeNotebook = (overrides: Partial<BookNote> = {}): BookNote => ({
 });
 
 describe('Notebook document helpers', () => {
+  it('prefers config location, then live progress, for notebook CFI', () => {
+    expect(resolveNotebookCompatibilityCfi('epubcfi(/6/2)', 'epubcfi(/6/4)')).toBe('epubcfi(/6/2)');
+    expect(resolveNotebookCompatibilityCfi(null, 'epubcfi(/6/4)')).toBe('epubcfi(/6/4)');
+    expect(resolveNotebookCompatibilityCfi('  ', 'epubcfi(/6/4)')).toBe('epubcfi(/6/4)');
+    expect(resolveNotebookCompatibilityCfi(null, null)).toBeNull();
+  });
+
   it('measures the UTF-8 byte length instead of UTF-16 code units', () => {
     expect(getNotebookByteLength('a你🙂')).toBe(8);
   });

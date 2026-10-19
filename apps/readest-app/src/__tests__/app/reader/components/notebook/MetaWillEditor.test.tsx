@@ -105,6 +105,36 @@ describe('MetaWillEditor', () => {
     expect(saveMetaWill.mock.calls[0]?.[0].sections[0].text).toBe('Do not lose this draft');
   });
 
+  it('retries a dirty draft when a compatibility CFI appears after a failed save', () => {
+    saveMetaWill.mockResolvedValueOnce(false).mockResolvedValue(true);
+    const { rerender } = render(
+      <MetaWillEditor
+        bookKey='book-view'
+        metaWill={createEmptyMetaWill()}
+        compatibilityCfi={null}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Why I read it' }), {
+      target: { value: 'Keep this after position arrives' },
+    });
+    act(() => vi.advanceTimersByTime(500));
+    expect(saveMetaWill).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MetaWillEditor
+        bookKey='book-view'
+        metaWill={createEmptyMetaWill()}
+        compatibilityCfi='epubcfi(/6/2)'
+      />,
+    );
+
+    expect(saveMetaWill).toHaveBeenCalledTimes(2);
+    expect(saveMetaWill.mock.calls[1]?.[0].sections[0].text).toBe(
+      'Keep this after position arrives',
+    );
+  });
+
   it('Link note appends a chip under the section and excludes the notebook record', () => {
     render(<MetaWillEditor bookKey='book-view' metaWill={createEmptyMetaWill()} />);
 

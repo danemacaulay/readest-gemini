@@ -91,13 +91,13 @@ const MetaWillEditor = ({
     if (!dirtyRef.current) return;
 
     const savingDraft = draftRef.current;
-    dirtyRef.current = false;
+    // Stay dirty until persist succeeds so a later CFI / remount can retry
+    // instead of dropping the draft after a waiting-for-position failure.
     void saveMetaWill(savingDraft).then((persisted) => {
       if (draftRef.current !== savingDraft) return;
       if (persisted) {
+        dirtyRef.current = false;
         hasLocalEditsRef.current = false;
-      } else {
-        dirtyRef.current = true;
       }
     });
   }, [saveMetaWill]);
@@ -112,6 +112,13 @@ const MetaWillEditor = ({
     }
   }, [compatibilityCfi, draft, flushDraft, saveMetaWill, seedOnMount]);
 
+  // Saves need a CFI. If the user typed while location was still unset, retry
+  // as soon as a compatibility CFI appears instead of leaving dirty in memory.
+  useEffect(() => {
+    if (!compatibilityCfi || !dirtyRef.current) return;
+    flushDraft();
+  }, [compatibilityCfi, flushDraft]);
+
   useEffect(() => {
     if (!dirtyRef.current) return;
     timeoutRef.current = setTimeout(flushDraft, SAVE_DEBOUNCE_MS);
@@ -124,7 +131,6 @@ const MetaWillEditor = ({
     () => () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (dirtyRef.current) {
-        dirtyRef.current = false;
         void saveRef.current(draftRef.current);
       }
     },

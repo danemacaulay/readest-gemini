@@ -42,6 +42,21 @@ export const findNotebookRecord = (booknotes: BookNote[]): BookNote | null =>
       booknote.id === NOTEBOOK_ID && booknote.type === 'notebook' && !booknote.deletedAt,
   ) ?? null;
 
+/**
+ * Notebook booknotes need a CFI. Prefer the saved config location; fall back to
+ * live reading progress so MetaWill / freeform drafts can persist before the
+ * first auto-save of config.location (otherwise typing is lost on restart).
+ */
+export const resolveNotebookCompatibilityCfi = (
+  configLocation: string | null | undefined,
+  progressLocation: string | null | undefined,
+): string | null => {
+  const fromConfig = configLocation?.trim();
+  if (fromConfig) return fromConfig;
+  const fromProgress = progressLocation?.trim();
+  return fromProgress || null;
+};
+
 export const upsertNotebookRecord = (
   booknotes: BookNote[],
   content: string,
