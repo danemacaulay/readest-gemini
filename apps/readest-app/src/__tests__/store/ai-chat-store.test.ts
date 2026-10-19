@@ -148,6 +148,79 @@ describe('aiChatStore', () => {
     });
   });
 
+  // ── ensureActiveConversationForBook ────────────────────────────
+  describe('ensureActiveConversationForBook', () => {
+    test('restores the most recently updated conversation after restart', async () => {
+      const convs: AIConversation[] = [
+        { id: 'old', bookHash: 'book1', title: 'Old', createdAt: 1, updatedAt: 100 },
+        { id: 'recent', bookHash: 'book1', title: 'Recent', createdAt: 2, updatedAt: 500 },
+      ];
+      mockGetConversations.mockResolvedValue(convs);
+      mockGetMessages.mockResolvedValue([
+        {
+          id: 'm1',
+          conversationId: 'recent',
+          role: 'assistant',
+          content: 'persisted answer',
+          createdAt: 400,
+        },
+      ]);
+
+      // Simulate cold start: no active conversation in memory
+      useAIChatStore.setState({
+        activeConversationId: null,
+        conversations: [],
+        messages: [],
+        currentBookHash: null,
+      });
+
+      const id = await useAIChatStore
+        .getState()
+        .ensureActiveConversationForBook('book1', 'Chat about Book');
+
+      expect(id).toBe('recent');
+      expect(useAIChatStore.getState().activeConversationId).toBe('recent');
+      expect(useAIChatStore.getState().messages[0]?.content).toBe('persisted answer');
+      expect(mockSaveConversation).not.toHaveBeenCalled();
+    });
+
+    test('creates a conversation when the book has none so chat can persist', async () => {
+      mockGetConversations.mockResolvedValue([]);
+      mockSaveConversation.mockImplementation(async (conv) => {
+        mockGetConversations.mockResolvedValue([conv]);
+      });
+
+      const id = await useAIChatStore
+        .getState()
+        .ensureActiveConversationForBook('book1', 'Chat about Book');
+
+      expect(typeof id).toBe('string');
+      expect(mockSaveConversation).toHaveBeenCalled();
+      expect(useAIChatStore.getState().activeConversationId).toBe(id);
+    });
+
+    test('keeps an already-active conversation for the same book', async () => {
+      const convs: AIConversation[] = [
+        { id: 'c1', bookHash: 'book1', title: 'Active', createdAt: 1, updatedAt: 10 },
+        { id: 'c2', bookHash: 'book1', title: 'Other', createdAt: 2, updatedAt: 99 },
+      ];
+      useAIChatStore.setState({
+        activeConversationId: 'c1',
+        conversations: convs,
+        currentBookHash: 'book1',
+        messages: [],
+      });
+      mockGetConversations.mockResolvedValue(convs);
+
+      const id = await useAIChatStore
+        .getState()
+        .ensureActiveConversationForBook('book1', 'Chat about Book');
+
+      expect(id).toBe('c1');
+      expect(mockGetMessages).not.toHaveBeenCalled();
+    });
+  });
+
   // ── createConversation ─────────────────────────────────────────
   describe('createConversation', () => {
     test('creates a conversation and returns its id', async () => {

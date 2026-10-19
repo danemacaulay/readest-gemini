@@ -343,12 +343,21 @@ const ThreadWrapper = ({
     return sourceStore.subscribe(currentTurnId, setSources);
   }, [currentTurnId, sourceStore]);
 
+  const createConversation = useAIChatStore((s) => s.createConversation);
+  const currentBookHash = useAIChatStore((s) => s.currentBookHash);
+
   const handleClear = useCallback(() => {
     sourceStore.clear();
     setSources([]);
-    setActiveConversation(null);
     assistantRuntime.switchToNewThread();
-  }, [assistantRuntime, setActiveConversation, sourceStore]);
+    // Start a fresh persisted conversation instead of nulling the id —
+    // otherwise the next turns never hit IndexedDB again.
+    if (currentBookHash) {
+      void createConversation(currentBookHash, 'New conversation');
+    } else {
+      void setActiveConversation(null);
+    }
+  }, [assistantRuntime, createConversation, currentBookHash, setActiveConversation, sourceStore]);
 
   return (
     <Thread
@@ -376,12 +385,22 @@ const AntigravityNotebookAssistant = ({ bookKey }: AIAssistantProps) => {
   const _ = useTranslation();
   const { settings } = useSettingsStore();
   const getBookData = useBookDataStore((s) => s.getBookData);
+  const ensureActiveConversationForBook = useAIChatStore((s) => s.ensureActiveConversationForBook);
   const bookData = getBookData(bookKey);
   const aiSettings = settings?.aiSettings;
   const book = bookData?.book;
   const metadata = book?.metadata;
   const bookTitle = book?.title || 'Unknown';
   const authorName = book?.author || '';
+  const bookHash = bookKey.split('-')[0] || '';
+
+  // Cold start / AI tab open: restore the book's newest thread (or create one)
+  // so turns persist via historyAdapter. Without an activeConversationId the
+  // adapter is undefined and chat is memory-only — blank after restart.
+  useEffect(() => {
+    if (!bookHash || !aiSettings?.enabled) return;
+    void ensureActiveConversationForBook(bookHash, `Chat about ${bookTitle}`);
+  }, [bookHash, bookTitle, aiSettings?.enabled, ensureActiveConversationForBook]);
 
   // Prefer the same display helpers used elsewhere so language maps /
   // contributor objects become plain strings for the adapter pack.
@@ -428,6 +447,7 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const { settings } = useSettingsStore();
   const getBookData = useBookDataStore((s) => s.getBookData);
   const getView = useReaderStore((s) => s.getView);
+  const ensureActiveConversationForBook = useAIChatStore((s) => s.ensureActiveConversationForBook);
   const bookData = getBookData(bookKey);
   // Reactive: chat context follows the user's current reading position.
   const progress = useBookProgress(bookKey);
@@ -443,6 +463,11 @@ const LegacyAIAssistant = ({ bookKey }: AIAssistantProps) => {
   const authorName = bookData?.book?.author || '';
   const currentPage = progress?.pageinfo?.current ?? 0;
   const aiSettings = settings?.aiSettings;
+
+  useEffect(() => {
+    if (!bookHash || !aiSettings?.enabled) return;
+    void ensureActiveConversationForBook(bookHash, `Chat about ${bookTitle}`);
+  }, [bookHash, bookTitle, aiSettings?.enabled, ensureActiveConversationForBook]);
 
   // Per-instance source store, plus the active backend chosen via the same
   // selectBackend gate the chat adapter will hit (Reedy on Tauri when
