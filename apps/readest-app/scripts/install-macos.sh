@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # Build this fork's macOS .app (ad-hoc signed) and install it for local use.
+# Always copies the result to /Applications so Spotlight / Dock open the
+# build you just made (not a stale temp CARGO_TARGET_DIR bundle).
+#
+# Optional env:
+#   KEEP_SOURCEMAPS=1     — keep .js.map in the bundle (devtools)
+#   TAURI_FEATURES=devtools — cargo features passed to `tauri build --features`
+#   OPEN_AFTER_INSTALL=1  — `open` /Applications/Readest.app when done
 set -euo pipefail
 
 APP_NAME="Readest"
@@ -27,9 +34,22 @@ cat >"${LOCAL_CONFIG}" <<'EOF'
 }
 EOF
 
+BUILD_ARGS=(build --bundles app --config "${LOCAL_CONFIG}")
+if [[ -n "${TAURI_FEATURES:-}" ]]; then
+  BUILD_ARGS+=(--features "${TAURI_FEATURES}")
+fi
+
 echo "==> Building ${APP_NAME}.app (ad-hoc signed, local install)"
 echo "    CARGO_TARGET_DIR=${CARGO_TARGET_DIR}"
-pnpm exec dotenv -e .env.tauri -- pnpm tauri build --bundles app --config "${LOCAL_CONFIG}"
+if [[ -n "${KEEP_SOURCEMAPS:-}" ]]; then
+  echo "    KEEP_SOURCEMAPS=${KEEP_SOURCEMAPS}"
+fi
+if [[ -n "${TAURI_FEATURES:-}" ]]; then
+  echo "    TAURI_FEATURES=${TAURI_FEATURES}"
+fi
+
+# dotenv forwards KEEP_SOURCEMAPS from the environment when set.
+pnpm exec dotenv -e .env.tauri -- pnpm tauri "${BUILD_ARGS[@]}"
 
 if [[ ! -d "${BUILT_APP}" ]]; then
   echo "error: expected build output missing: ${BUILT_APP}" >&2
@@ -59,4 +79,9 @@ else
 fi
 
 echo "==> Done: ${INSTALL_DIR}"
-echo "    Open with: open -a ${APP_NAME}"
+if [[ "${OPEN_AFTER_INSTALL:-}" == "1" ]]; then
+  echo "    Opening ${INSTALL_DIR}"
+  open -n "${INSTALL_DIR}"
+else
+  echo "    Open with: open -a ${APP_NAME}"
+fi
