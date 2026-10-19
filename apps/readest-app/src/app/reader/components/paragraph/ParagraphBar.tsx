@@ -368,12 +368,7 @@ const ParagraphBar: React.FC<ParagraphBarProps> = ({
         <button
           type='button'
           onClick={onClose}
-          disabled={isLoading}
-          className={clsx(
-            BAR_BUTTON,
-            'text-base-content/70 ms-0.5',
-            isLoading && 'pointer-events-none opacity-50',
-          )}
+          className={clsx(BAR_BUTTON, 'text-base-content/70 ms-0.5')}
           title={_('Exit Paragraph Mode')}
           aria-label={_('Exit Paragraph Mode')}
         >

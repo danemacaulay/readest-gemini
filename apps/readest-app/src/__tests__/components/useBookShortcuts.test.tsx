@@ -231,6 +231,38 @@ describe('useBookShortcuts', () => {
     expect(mockView.next).toHaveBeenCalledWith(72);
   });
 
+  it('pages normally when paragraph mode is enabled but its overlay never mounted', () => {
+    currentViewSettings.paragraphMode.enabled = true;
+    currentViewSettings.readingRulerEnabled = false;
+    const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
+
+    render(<Harness />);
+    shortcutState.actions?.['onGoRight']?.();
+
+    expect(dispatchSpy).not.toHaveBeenCalledWith('paragraph-next', expect.anything());
+    expect(mockView.next).toHaveBeenCalled();
+  });
+
+  it('routes arrows to paragraph mode only while the overlay is live', () => {
+    currentViewSettings.paragraphMode.enabled = true;
+    currentViewSettings.readingRulerEnabled = false;
+    const overlay = document.createElement('div');
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-label', 'Paragraph reading mode');
+    document.body.append(overlay);
+    const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
+
+    try {
+      render(<Harness />);
+      shortcutState.actions?.['onGoRight']?.();
+
+      expect(dispatchSpy).toHaveBeenCalledWith('paragraph-next', { bookKey: 'book-1' });
+      expect(mockView.next).not.toHaveBeenCalled();
+    } finally {
+      overlay.remove();
+    }
+  });
+
   it('falls back to normal page navigation when the ruler cannot move further', () => {
     vi.spyOn(eventDispatcher, 'dispatchSync').mockReturnValue(false);
 

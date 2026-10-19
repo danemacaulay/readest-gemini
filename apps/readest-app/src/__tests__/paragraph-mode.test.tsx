@@ -215,6 +215,20 @@ describe('paragraph mode', () => {
     ).toBe('next');
   });
 
+  it('clears the Loading state when paragraph init cannot find document content', async () => {
+    // Empty contents: getPrimaryContent() returns null and initIterator used to
+    // leave isLoading true forever — the bar hung on "Loading" with nav disabled.
+    const { view } = createMockView([], 0);
+    const viewRef = { current: view } as React.RefObject<FoliateView | null>;
+
+    render(<HookHarness view={viewRef} />);
+
+    await waitFor(() => {
+      expect(hookApi?.paragraphState.isLoading).toBe(false);
+    });
+    expect(hookApi?.paragraphState.currentRange).toBeNull();
+  });
+
   it('uses the active primary section when moving across chapter boundaries', async () => {
     const previousChapterDoc = createDoc('<p>Old chapter ending</p>');
     const nextChapterDoc = createDoc('<h1>Chapter 2</h1><p>First paragraph</p>');

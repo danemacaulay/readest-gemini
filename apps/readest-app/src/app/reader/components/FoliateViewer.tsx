@@ -1177,6 +1177,7 @@ const FoliateViewer: React.FC<{
       <ExternalLinkConfirm view={viewRef.current} />
       <div
         ref={containerRef}
+        tabIndex={-1}
         role='main'
         aria-label={_('Book Content')}
         className={clsx(

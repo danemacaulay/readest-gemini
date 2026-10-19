@@ -181,6 +181,10 @@ export const useParagraphMode = ({ bookKey, viewRef }: UseParagraphModeProps) =>
     setParagraphState((prev) => ({ ...prev, isLoading: true }));
 
     const initPromise = (async (): Promise<boolean> => {
+      // Always drop isLoading on exit. Early returns (no view/doc) and thrown
+      // errors used to leave the bar stuck on "Loading" with the overlay never
+      // shown — which looked like random chrome while "not in paragraph mode".
+      let finishedLoading = false;
       try {
         const view = viewRef.current;
         if (!view) return false;
@@ -201,10 +205,12 @@ export const useParagraphMode = ({ bookKey, viewRef }: UseParagraphModeProps) =>
         if (pendingNav === 'next') {
           iteratorRef.current.first();
           updateStateFromIterator(false);
+          finishedLoading = true;
           return true;
         } else if (pendingNav === 'prev') {
           iteratorRef.current.last();
           updateStateFromIterator(false);
+          finishedLoading = true;
           return true;
         }
 
@@ -273,6 +279,7 @@ export const useParagraphMode = ({ bookKey, viewRef }: UseParagraphModeProps) =>
         }
 
         updateStateFromIterator(false);
+        finishedLoading = true;
 
         // Apply a pending cross-section TTS sync once the iterator targets the
         // CFI's section and that sync is still the latest sequence seen.
@@ -292,7 +299,13 @@ export const useParagraphMode = ({ bookKey, viewRef }: UseParagraphModeProps) =>
           refreshTtsSyncStatusRef.current?.();
         }
         return true;
+      } catch (error) {
+        console.warn('[ParagraphMode] Iterator init failed:', error);
+        return false;
       } finally {
+        if (!finishedLoading) {
+          setParagraphState((prev) => (prev.isLoading ? { ...prev, isLoading: false } : prev));
+        }
         isProcessingRef.current = false;
         initPromiseRef.current = null;
       }

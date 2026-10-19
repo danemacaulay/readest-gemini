@@ -158,4 +158,16 @@ describe('reader relocation progress', () => {
     expect(setProgress).toHaveBeenCalledOnce();
     expect(setProgress.mock.lastCall?.[5]).toEqual({ current: 3, next: 4, total: 10 });
   });
+
+  // useAutoFocus + host-document arrow shortcuts need a focusable reading panel.
+  // #3509 dropped tabIndex while leaving useAutoFocus in place, so Left/Right
+  // page turns became unreliable once focus left the book iframe.
+  it('keeps the reading panel programmatically focusable for arrow-key paging', () => {
+    render(<FoliateViewer {...props} />);
+    const panel = document.querySelector<HTMLElement>('.foliate-viewer');
+    expect(panel).not.toBeNull();
+    expect(panel!.getAttribute('tabindex')).toBe('-1');
+    panel!.focus();
+    expect(document.activeElement).toBe(panel);
+  });
 });

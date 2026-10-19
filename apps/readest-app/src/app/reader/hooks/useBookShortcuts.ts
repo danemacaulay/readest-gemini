@@ -138,10 +138,15 @@ const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) =
     return extended;
   };
 
+  // Paragraph mode only owns arrow keys once its overlay is up. A stuck
+  // Loading bar (enabled=true, overlay never mounted) used to swallow Left/Right
+  // with no effect until the user toggled the mode off.
+  const isParagraphOverlayLive = () =>
+    !!document.querySelector('[role="dialog"][aria-label="Paragraph reading mode"]');
+
   const goLeft = () => {
     const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    // If paragraph mode is enabled, navigate to previous paragraph instead
-    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey) {
+    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey && isParagraphOverlayLive()) {
       const action = getParagraphActionForKey('ArrowLeft', viewSettings);
       eventDispatcher.dispatch(action === 'next' ? 'paragraph-next' : 'paragraph-prev', {
         bookKey: sideBarBookKey,
@@ -154,8 +159,7 @@ const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) =
 
   const goRight = () => {
     const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    // If paragraph mode is enabled, navigate to next paragraph instead
-    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey) {
+    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey && isParagraphOverlayLive()) {
       const action = getParagraphActionForKey('ArrowRight', viewSettings);
       eventDispatcher.dispatch(action === 'prev' ? 'paragraph-prev' : 'paragraph-next', {
         bookKey: sideBarBookKey,
@@ -169,8 +173,7 @@ const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) =
   const goUp = (event?: KeyboardEvent | MessageEvent) => {
     const view = getView(sideBarBookKey);
     const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    // If paragraph mode is enabled, navigate to previous paragraph instead
-    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey) {
+    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey && isParagraphOverlayLive()) {
       const action = getParagraphActionForKey('ArrowUp', viewSettings);
       eventDispatcher.dispatch(action === 'next' ? 'paragraph-next' : 'paragraph-prev', {
         bookKey: sideBarBookKey,
@@ -186,8 +189,7 @@ const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) =
   const goDown = (event?: KeyboardEvent | MessageEvent) => {
     const view = getView(sideBarBookKey);
     const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    // If paragraph mode is enabled, navigate to next paragraph instead
-    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey) {
+    if (viewSettings?.paragraphMode?.enabled && sideBarBookKey && isParagraphOverlayLive()) {
       const action = getParagraphActionForKey('ArrowDown', viewSettings);
       eventDispatcher.dispatch(action === 'prev' ? 'paragraph-prev' : 'paragraph-next', {
         bookKey: sideBarBookKey,
