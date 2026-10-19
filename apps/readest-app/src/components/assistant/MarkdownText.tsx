@@ -1,6 +1,7 @@
 'use client';
 
 import '@assistant-ui/react-markdown/styles/dot.css';
+import 'katex/dist/katex.min.css';
 
 import {
   type CodeHeaderProps,
@@ -8,17 +9,21 @@ import {
   unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
   useIsMarkdownCodeBlock,
 } from '@assistant-ui/react-markdown';
-import remarkGfm from 'remark-gfm';
 import { type FC, memo, useState } from 'react';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 
 import { TooltipIconButton } from './TooltipIconButton';
 import { cn } from '@/utils/tailwind';
+import {
+  assistantRehypePlugins,
+  assistantRemarkPlugins,
+} from '@/components/assistant/markdownPlugins';
 
 const MarkdownTextImpl = () => {
   return (
     <MarkdownTextPrimitive
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={assistantRemarkPlugins}
+      rehypePlugins={assistantRehypePlugins}
       className='aui-md'
       components={defaultComponents}
     />
